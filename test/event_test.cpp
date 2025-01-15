@@ -23,12 +23,11 @@ namespace axle {
 
 TEST(EventLoopTest, TimerOneshot) {
     EventLoop ev_loop;
-    int timer_id = 1;
+    const int timer_id = 1;
     const uint64_t delay = 5e8;
     bool called = false;
 
-    const TimerEventCb cb = [&](uint64_t id, Status<None, int64_t> status) {
-        EXPECT_EQ(timer_id, id);
+    const TimerEventCb cb = [&](Status<None, uint32_t> status) {
         EXPECT_TRUE(status.is_ok());
 
         called = true;
@@ -47,13 +46,12 @@ TEST(EventLoopTest, TimerOneshot) {
 
 TEST(EventLoopTest, TimerPeriodic) {
     EventLoop ev_loop;
-    int timer_id = 1;
+    const int timer_id = 1;
     const uint64_t delay = 5e8;
     int counter = 0;
     int counter_max = 4;
 
-    const TimerEventCb cb = [&](uint64_t id, Status<None, int64_t> status) {
-        EXPECT_EQ(timer_id, id);
+    const TimerEventCb cb = [&](Status<None, uint32_t> status) {
         EXPECT_TRUE(status.is_ok());
 
         ++counter;
@@ -80,8 +78,7 @@ TEST(EventLoopTest, TimerUpdate) {
     int counter_max = 4;
     bool called = false;
 
-    const TimerEventCb cb_oneshot = [&](uint64_t id, Status<None, int64_t> status) {
-        EXPECT_EQ(timer_id, id);
+    const TimerEventCb cb_oneshot = [&](Status<None, uint32_t> status) {
         EXPECT_TRUE(status.is_ok());
 
         called = true;
@@ -90,13 +87,12 @@ TEST(EventLoopTest, TimerUpdate) {
         EXPECT_TRUE(res.is_ok());
     };
 
-    const TimerEventCb cb_periodic = [&](uint64_t id, Status<None, int64_t> status) {
-        EXPECT_EQ(timer_id, id);
+    const TimerEventCb cb_periodic = [&](Status<None, uint32_t> status) {
         EXPECT_TRUE(status.is_ok());
         ++counter;
         if (counter == counter_max) {
             const Status<None, int> res =
-                ev_loop.register_timer(id, delay, false /* periodic */, cb_oneshot);
+                ev_loop.register_timer(timer_id, delay, false /* periodic */, cb_oneshot);
             EXPECT_TRUE(res.is_ok());
         }
     };
@@ -114,18 +110,15 @@ TEST(EventLoopTest, BadFd) {
     EventLoop ev_loop{};
     const int bogus_fd = 5;
 
-    Status<None, int> status =
-        ev_loop.register_fd_read(bogus_fd, [](uint64_t, Status<int64_t, uint32_t>) {});
+    Status<None, int> status = ev_loop.register_fd_read(bogus_fd, [](Status<int64_t, uint32_t>) {});
     ASSERT_TRUE(status.is_err());
     ASSERT_EQ(EBADF, status.err());
 
-    status = ev_loop.register_fd_write(bogus_fd, [](uint64_t, Status<int64_t, uint32_t>) {});
+    status = ev_loop.register_fd_write(bogus_fd, [](Status<int64_t, uint32_t>) {});
     ASSERT_TRUE(status.is_err());
     ASSERT_EQ(EBADF, status.err());
 
-    status = ev_loop.register_fd_eof(bogus_fd, [](uint64_t, Status<int64_t, uint32_t>) {});
-    ASSERT_TRUE(status.is_err());
-    ASSERT_EQ(0, status.err());
+    ASSERT_TRUE(ev_loop.register_fd_eof(bogus_fd, []() {}).is_err());
 }
 
 class IncrementServer {
@@ -281,14 +274,9 @@ TEST(EventLoopTest, Server) {
     Request request{std::move(socket), std::span<uint8_t>{send_buf}, std::span<uint8_t>{recv_buf}};
 
     EventLoop ev_loop{};
-    const FdEventEOFCb eof_cb = [&](uint64_t id, Status<int64_t, uint32_t> status) {
-        (void)id;
-        (void)status;
-        FAIL();
-    };
+    const FdEventEOFCb eof_cb = [&]() { FAIL(); };
 
-    const FdEventIOCb read_cb = [&](uint64_t id, Status<int64_t, uint32_t> status) {
-        EXPECT_EQ(conn_fd, id);
+    const FdEventIOCb read_cb = [&](Status<int64_t, uint32_t> status) {
         EXPECT_TRUE(status.is_ok());
 
         switch (request.get_state()) {
@@ -302,8 +290,7 @@ TEST(EventLoopTest, Server) {
         }
     };
 
-    const FdEventIOCb write_cb = [&](uint64_t id, Status<int64_t, uint32_t> status) {
-        EXPECT_EQ(conn_fd, id);
+    const FdEventIOCb write_cb = [&](Status<int64_t, uint32_t> status) {
         EXPECT_TRUE(status.is_ok());
 
         switch (request.get_state()) {

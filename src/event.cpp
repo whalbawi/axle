@@ -68,14 +68,14 @@ Status<None, int> EventLoop::register_fd_write(int fd, const FdEventIOCb& cb) {
     return Status<None, int>::make_ok();
 }
 
-Status<None, int> EventLoop::register_fd_eof(int fd, const FdEventEOFCb& cb) {
+Status<None, None> EventLoop::register_fd_eof(int fd, const FdEventEOFCb& cb) {
     if (!fd_read_.contains(fd) && !fd_write_.contains(fd)) {
-        return Status<None, int>::make_err(0);
+        return Status<None, None>::make_err();
     }
 
     fd_eof_[fd] = cb;
 
-    return Status<None, int>::make_ok();
+    return Status<None, None>::make_ok();
 }
 
 Status<None, int> EventLoop::register_timer(uint64_t id,
@@ -136,12 +136,12 @@ Status<None, int> EventLoop::remove_fd_write(int fd) {
     return Status<None, int>::make_ok();
 }
 
-Status<None, int> EventLoop::remove_fd_eof(int fd) {
+Status<None, None> EventLoop::remove_fd_eof(int fd) {
     if (fd_eof_.erase(fd) != 1) {
-        return Status<None, int>::make_err(0);
+        return Status<None, None>::make_err();
     }
 
-    return Status<None, int>::make_ok();
+    return Status<None, None>::make_ok();
 }
 
 Status<None, int> EventLoop::remove_timer(uint64_t id) {
@@ -224,7 +224,7 @@ void EventLoop::handle_shutdown(const uint64_t id) {
     }
 }
 
-void EventLoop::handle_timer(const uint64_t id, const uint16_t flags, const int64_t data) {
+void EventLoop::handle_timer(const uint64_t id, const uint16_t flags, const uint32_t fflags) {
     if (!timers_.contains(id)) {
         return;
     }
@@ -232,9 +232,9 @@ void EventLoop::handle_timer(const uint64_t id, const uint16_t flags, const int6
     // TODO (whalbawi): Confirm what happens when a timer fails and how errors are reported.
     const TimerEventCb& cb = timers_[id];
     if ((flags & EV_ERROR) != 0) {
-        cb(id, Status<None, int64_t>::make_err(data));
+        cb(Status<None, uint32_t>::make_err(fflags));
     } else {
-        cb(id, Status<None, int64_t>::make_ok());
+        cb(Status<None, uint32_t>::make_ok());
     }
 }
 
@@ -245,15 +245,15 @@ void EventLoop::handle_fd_read(const uint64_t fd,
     if (fd_read_.contains(fd)) {
         const FdEventIOCb& cb = fd_read_[fd];
         if ((flags & EV_ERROR) != 0) {
-            cb(fd, Status<int64_t, uint32_t>::make_err(fflags));
+            cb(Status<int64_t, uint32_t>::make_err(fflags));
         } else {
-            cb(fd, Status<int64_t, uint32_t>::make_ok(data));
+            cb(Status<int64_t, uint32_t>::make_ok(data));
         }
     }
 
     if ((flags & EV_EOF) != 0 && fd_eof_.contains(fd)) {
         const FdEventEOFCb& cb = fd_eof_[fd];
-        cb(fd, Status<int64_t, uint32_t>::make_ok(data));
+        cb();
     }
 }
 
@@ -266,14 +266,14 @@ void EventLoop::handle_fd_write(const uint64_t fd,
     }
     const FdEventIOCb& cb = fd_write_[fd];
     if ((flags & EV_ERROR) != 0) {
-        cb(fd, Status<int64_t, uint32_t>::make_err(fflags));
+        cb(Status<int64_t, uint32_t>::make_err(fflags));
     } else {
-        cb(fd, Status<int64_t, uint32_t>::make_ok(data));
+        cb(Status<int64_t, uint32_t>::make_ok(data));
     }
 
     if ((flags & EV_EOF) != 0 && fd_eof_.contains(fd)) {
         const FdEventEOFCb& cb = fd_eof_[fd];
-        cb(fd, Status<int64_t, uint32_t>::make_ok(data));
+        cb();
     }
 }
 
