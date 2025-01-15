@@ -45,8 +45,7 @@ class TcpServer {
         }
 
         (void)event_loop_->register_fd_read(
-            socket_.get_fd(), [this](uint64_t fd, axle::Status<int64_t, uint32_t> status) {
-                (void)fd;
+            socket_.get_fd(), [this](axle::Status<int64_t, uint32_t> status) {
                 if (status.is_err()) {
                     log("notification failure for server socket: {}\n", status.err());
                     return;
@@ -77,9 +76,7 @@ class TcpServer {
         const std::shared_ptr<SessionT> session{handle_connection()};
 
         (void)event_loop_->register_fd_read(
-            socket->get_fd(),
-            [socket, session](uint64_t fd, axle::Status<int64_t, uint32_t> status) {
-                (void)fd;
+            socket->get_fd(), [socket, session](axle::Status<int64_t, uint32_t> status) {
                 if (status.is_err()) {
                     log("read failure from client socket: {}\n", status.err());
 
@@ -97,9 +94,7 @@ class TcpServer {
             });
 
         (void)event_loop_->register_fd_write(
-            socket->get_fd(),
-            [socket, session](uint64_t fd, axle::Status<int64_t, uint32_t> status) {
-                (void)fd;
+            socket->get_fd(), [socket, session](axle::Status<int64_t, uint32_t> status) {
                 if (status.is_err()) {
                     log("write failure to client socket: {}\n", status.err());
 
@@ -116,30 +111,21 @@ class TcpServer {
                 session->post_send(buf.size());
             });
 
-        (void)event_loop_->register_fd_eof(
-            socket->get_fd(),
-            [socket, session, this](uint64_t fd, axle::Status<int64_t, uint32_t> status) {
-                (void)fd;
-                if (status.is_err()) {
-                    log("close failure on socket: {}\n", status.err());
+        (void)event_loop_->register_fd_eof(socket->get_fd(), [socket, session, this]() {
+            session->end();
 
-                    return;
-                }
+            if (event_loop_->remove_fd_write(socket->get_fd()).is_err()) {
+                log("failed to remove fd write filter\n");
+            }
 
-                session->end();
+            if (event_loop_->remove_fd_read(socket->get_fd()).is_err()) {
+                log("failed to remove fd read filter\n");
+            }
 
-                if (event_loop_->remove_fd_write(socket->get_fd()).is_err()) {
-                    log("failed to remove fd write filter: {}\n", status.err());
-                }
-
-                if (event_loop_->remove_fd_read(socket->get_fd()).is_err()) {
-                    log("failed to remove fd read filter: {}\n", status.err());
-                }
-
-                if (event_loop_->remove_fd_eof(socket->get_fd()).is_err()) {
-                    log("failed to remove fd eof filter: {}\n", status.err());
-                }
-            });
+            if (event_loop_->remove_fd_eof(socket->get_fd()).is_err()) {
+                log("failed to remove fd eof filter\n");
+            }
+        });
     }
 
     bool running() {
