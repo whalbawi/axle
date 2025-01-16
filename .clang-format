@@ -1,6 +1,7 @@
 ColumnLimit: 100
 IndentWidth: 4
 NamespaceIndentation: None
+ShortNamespaceLines: 0
 
 PointerAlignment: Left
 
@@ -11,6 +12,7 @@ AllowShortLoopsOnASingleLine: true
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 BinPackArguments: false
 BinPackParameters: false
+AllowAllParametersOfDeclarationOnNextLine: true
 BreakAfterReturnType: Automatic
 PenaltyReturnTypeOnItsOwnLine: 1000
 

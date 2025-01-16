@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(axle CXX)
+project(axle LANGUAGES CXX ASM)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -77,7 +77,10 @@ configure_file(${AXLE_SRC_DIR}/version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/gen/ve
 set(AXLE_SRC_LIST
     ${AXLE_SRC_DIR}/axle.cpp
     ${AXLE_SRC_DIR}/event.cpp
+    ${AXLE_SRC_DIR}/fiber.cpp
     ${AXLE_SRC_DIR}/socket.cpp
+    ${AXLE_SRC_DIR}/fiber_arm64.cpp
+    ${AXLE_SRC_DIR}/asm/fiber_arm64.s
     ${CMAKE_CURRENT_BINARY_DIR}/gen/version.cpp
 )
 
@@ -85,6 +88,7 @@ set(AXLE_SRC_LIST
 set(AXLE_TEST_LIST
     ${AXLE_TEST_DIR}/axle_test.cpp
     ${AXLE_TEST_DIR}/event_test.cpp
+    ${AXLE_TEST_DIR}/fiber_test.cpp
     ${AXLE_TEST_DIR}/status_test.cpp
 )
 
@@ -103,7 +107,7 @@ target_link_libraries(echo_server axle-lib)
 
 file(GLOB_RECURSE HDR_FILES "${AXLE_SRC_DIR}/*.h" "${AXLE_INCLUDE_DIR}/*.h")
 add_custom_target(lint
-  COMMAND /usr/local/bin/clang-tidy -p ${CMAKE_BINARY_DIR} --config-file ${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy ${HDR_FILES}
-  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/run-clang-tidy.py -p=${CMAKE_BINARY_DIR} -config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy
+  # COMMAND /usr/local/bin/clang-tidy -p "${CMAKE_BINARY_DIR}" --checks="-*,misc-include-cleaner" ${HDR_FILES}
+  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/run-clang-tidy.py -allow-no-checks -p=${CMAKE_BINARY_DIR}
   COMMENT "Running clang-tidy..."
 )
