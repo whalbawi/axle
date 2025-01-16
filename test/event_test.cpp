@@ -325,4 +325,5 @@ TEST(EventLoopTest, Server) {
 }
 
 } // namespace axle
+
 // NOLINTEND(readability-function-cognitive-complexity)
