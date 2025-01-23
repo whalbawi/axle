@@ -54,7 +54,7 @@ class Session {
     }
 
   private:
-    static constexpr size_t k_buf_sz = 1024;
+    static constexpr size_t k_buf_sz = 16 * 1024UL;
 
     std::array<uint8_t, k_buf_sz> buf_{};
     std::array<uint8_t, k_buf_sz>::iterator head_{buf_.begin()};
@@ -85,5 +85,6 @@ int main(int argc, char** argv) {
         event_loop->run();
     } catch (const std::exception& e) {
         std::cerr << e.what() << "\n";
+        return -1;
     }
 }

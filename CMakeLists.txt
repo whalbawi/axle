@@ -34,7 +34,8 @@ if(ENABLE_MSAN)
         )
         add_link_options(-fsanitize=address)
     else()
-        add_compile_options( -fsanitize=memory -fno-omit-frame-pointer
+        add_compile_options( -fsanitize=memory
+            -fno-omit-frame-pointer
             -g
         )
         add_link_options(-fsanitize=memory)
@@ -75,9 +76,11 @@ configure_file(${AXLE_SRC_DIR}/version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/gen/ve
 
 # Source files
 set(AXLE_SRC_LIST
+    ${AXLE_SRC_DIR}/async_socket.cpp
     ${AXLE_SRC_DIR}/axle.cpp
     ${AXLE_SRC_DIR}/event.cpp
     ${AXLE_SRC_DIR}/fiber.cpp
+    ${AXLE_SRC_DIR}/scheduler.cpp
     ${AXLE_SRC_DIR}/socket.cpp
     ${AXLE_SRC_DIR}/fiber_arm64.cpp
     ${AXLE_SRC_DIR}/asm/fiber_arm64.s
@@ -104,6 +107,9 @@ add_test(unit-tests axle-tests)
 
 add_executable(echo_server ${AXLE_EXAMPLES_DIR}/echo_server/main.cpp)
 target_link_libraries(echo_server axle-lib)
+
+add_executable(async_echo_server ${AXLE_EXAMPLES_DIR}/async_echo_server/main.cpp)
+target_link_libraries(async_echo_server axle-lib)
 
 file(GLOB_RECURSE HDR_FILES "${AXLE_SRC_DIR}/*.h" "${AXLE_INCLUDE_DIR}/*.h")
 add_custom_target(lint

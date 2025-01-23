@@ -37,6 +37,7 @@ class EventLoop {
     Status<None, None> remove_fd_eof(int fd);
     Status<None, int> remove_timer(uint64_t id);
 
+    void tick();
     void run();
 
     Status<None, int> shutdown() const;

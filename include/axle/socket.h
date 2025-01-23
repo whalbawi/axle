@@ -13,11 +13,12 @@ class Socket {
   public:
     Socket();
     explicit Socket(int fd);
+    Socket& operator=(Socket&&) = delete;
+    virtual ~Socket();
+
     Socket(const Socket&) = delete;
     Socket& operator=(const Socket&) = delete;
     Socket(Socket&& other) noexcept;
-    Socket& operator=(Socket&&) = delete;
-    virtual ~Socket();
 
     Status<None, int> set_non_blocking() const;
 
