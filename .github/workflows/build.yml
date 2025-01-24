@@ -52,9 +52,10 @@ jobs:
       matrix:
         os: [ macos-latest ]
         build_type:
-          - -DENABLE_MSAN=ON
-          - -DENABLE_UBSAN=ON
+          - -DAXLE_ENABLE_MSAN=ON -DCMAKE_BUILD_TYPE=Release
+          - -DAXLE_ENABLE_UBSAN=ON -DCMAKE_BUILD_TYPE=Release
           - -DCMAKE_BUILD_TYPE=Release
+          - -DCMAKE_BUILD_TYPE=Debug
 
     steps:
     - uses: actions/checkout@v2
@@ -65,7 +66,7 @@ jobs:
       run: ./tools/install-deps.sh
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build ${{ matrix.build_options }} -DCMAKE_CXX_COMPILER=/usr/local/bin/clang++
+      run: cmake -B ${{github.workspace}}/build ${{ matrix.build_type }} -DCMAKE_CXX_COMPILER=/usr/local/bin/clang++
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build
