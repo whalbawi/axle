@@ -22,10 +22,10 @@ add_compile_options(
     -Werror
 )
 
-option(ENABLE_MSAN "Enable Memory Sanitizer" OFF)
-option(ENABLE_USAN "Enable Undefined Behavior Sanitizer" OFF)
+option(AXLE_ENABLE_MSAN "Enable Memory Sanitizer" OFF)
+option(AXLE_ENABLE_USAN "Enable Undefined Behavior Sanitizer" OFF)
 
-if(ENABLE_MSAN)
+if(AXLE_ENABLE_MSAN)
     if(APPLE)
         add_compile_options(
             -fsanitize=address
@@ -40,14 +40,17 @@ if(ENABLE_MSAN)
         )
         add_link_options(-fsanitize=memory)
     endif()
-endif()
 
-if(ENABLE_UBSAN)
+    message("MSAN enabled")
+elseif(AXLE_ENABLE_UBSAN)
     add_compile_options(
         -fsanitize=undefined
         -g
     )
     add_link_options(-fsanitize=undefined)
+    message("UBSAN enabled")
+else()
+    message("No sanitizers enabled")
 endif()
 
 # Dependencies
