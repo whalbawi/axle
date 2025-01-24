@@ -40,14 +40,17 @@ if(ENABLE_MSAN)
         )
         add_link_options(-fsanitize=memory)
     endif()
-endif()
 
-if(ENABLE_UBSAN)
+    message("MSAN enabled")
+elseif(ENABLE_UBSAN)
     add_compile_options(
         -fsanitize=undefined
         -g
     )
     add_link_options(-fsanitize=undefined)
+    message("UBSAN enabled")
+else()
+    message("No sanitizers enabled")
 endif()
 
 # Dependencies
