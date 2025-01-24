@@ -34,13 +34,13 @@ if(AXLE_ENABLE_MSAN)
         )
         add_link_options(-fsanitize=address)
     else()
-        add_compile_options( -fsanitize=memory
+        add_compile_options(
+            -fsanitize=memory
             -fno-omit-frame-pointer
             -g
         )
         add_link_options(-fsanitize=memory)
     endif()
-
     message("MSAN enabled")
 elseif(AXLE_ENABLE_UBSAN)
     add_compile_options(
@@ -107,6 +107,14 @@ target_include_directories(axle-tests PRIVATE ${AXLE_SRC_DIR})
 target_link_libraries(axle-tests axle-lib gtest_main)
 
 add_test(unit-tests axle-tests)
+if(AXLE_ENABLE_MSAN)
+    if(APPLE)
+        set_tests_properties(unit-tests PROPERTIES
+            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=1;LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/sanitizers/asan/asan_leak_supp_darwin_arm64.txt"
+        )
+    endif()
+endif()
+
 
 add_executable(echo_server ${AXLE_EXAMPLES_DIR}/echo_server/main.cpp)
 target_link_libraries(echo_server axle-lib)
