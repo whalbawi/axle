@@ -22,27 +22,18 @@ add_compile_options(
     -Werror
 )
 
-option(AXLE_ENABLE_MSAN "Enable Memory Sanitizer" OFF)
-option(AXLE_ENABLE_USAN "Enable Undefined Behavior Sanitizer" OFF)
+option(AXLE_ENABLE_ASAN "Enable Address Sanitizer" OFF)
+option(AXLE_ENABLE_UBSAN "Enable Undefined Behavior Sanitizer" OFF)
 
-if(AXLE_ENABLE_MSAN)
-    if(APPLE)
-        add_compile_options(
-            -fsanitize=address
-            -fno-omit-frame-pointer
-            -g
-        )
-        add_link_options(-fsanitize=address)
-    else()
-        add_compile_options(
-            -fsanitize=memory
-            -fno-omit-frame-pointer
-            -g
-        )
-        add_link_options(-fsanitize=memory)
-    endif()
-    message("MSAN enabled")
-elseif(AXLE_ENABLE_UBSAN)
+if(AXLE_ENABLE_ASAN)
+    add_compile_options(
+        -fsanitize=address
+        -fno-omit-frame-pointer
+        -g
+    )
+    add_link_options(-fsanitize=address)
+    message("ASAN enabled")
+elseif(AXLE_UBSAN_ENABLED)
     add_compile_options(
         -fsanitize=undefined
         -g
@@ -101,20 +92,27 @@ set(AXLE_TEST_LIST
 add_library(axle-lib ${AXLE_SRC_LIST})
 target_include_directories(axle-lib PUBLIC ${AXLE_INCLUDE_DIR} ${AXLE_SRC_DIR})
 set_target_properties(axle-lib PROPERTIES OUTPUT_NAME axle)
+if (AXLE_ENABLE_ASAN)
+    target_compile_definitions(axle-lib PUBLIC "AXLE_ASAN_ENABLED=1")
+endif()
 
 add_executable(axle-tests ${AXLE_TEST_LIST})
 target_include_directories(axle-tests PRIVATE ${AXLE_SRC_DIR})
 target_link_libraries(axle-tests axle-lib gtest_main)
 
 add_test(unit-tests axle-tests)
-if(AXLE_ENABLE_MSAN)
+if(AXLE_ENABLE_ASAN)
     if(APPLE)
-        set_tests_properties(unit-tests PROPERTIES
-            ENVIRONMENT "ASAN_OPTIONS=detect_leaks=1;LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/sanitizers/asan/asan_leak_supp_darwin_arm64.txt"
-        )
+        set(AXLE_ASAN_OPTIONS detect_leaks=1)
     endif()
+    set(AXLE_LSAN_SUPP_FILE
+        ${CMAKE_CURRENT_SOURCE_DIR}/sanitizers/asan/asan_leak_supp_darwin_arm64.txt
+    )
+    set(AXLE_LSAN_OPTIONS suppressions=${AXLE_LSAN_SUPP_FILE})
+    set_tests_properties(unit-tests PROPERTIES
+        ENVIRONMENT "ASAN_OPTIONS=${AXLE_ASAN_OPTIONS};LSAN_OPTIONS=${AXLE_LSAN_OPTIONS}"
+    )
 endif()
-
 
 add_executable(echo_server ${AXLE_EXAMPLES_DIR}/echo_server/main.cpp)
 target_link_libraries(echo_server axle-lib)

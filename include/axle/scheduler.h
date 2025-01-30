@@ -12,6 +12,7 @@ namespace axle {
 class Scheduler {
   public:
     static void init();
+    static void terminate();
 
     static void schedule(std::function<void()> task);
     static void yield();
@@ -31,12 +32,15 @@ class Scheduler {
     void run();
     void switch_to(std::shared_ptr<Fiber> target);
 
-    std::shared_ptr<Fiber> current_fiber_;
+    std::shared_ptr<Fiber> main_fiber_;
     std::shared_ptr<Fiber> loop_fiber_;
+    std::shared_ptr<Fiber> current_fiber_;
     std::shared_ptr<EventLoop> event_loop_;
 
     std::list<std::shared_ptr<Fiber>> ready_fibers_;
     std::list<std::shared_ptr<Fiber>> terminated_fibers_;
+
+    bool done_ = false;
 };
 
 } // namespace axle

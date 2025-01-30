@@ -28,7 +28,7 @@ TEST(Fibers, ExitFromFiber) {
     Fiber main_fiber{};
     int a = 1;
 
-    const Fiber fiber1{[&] {
+    Fiber fiber1{[&] {
         EXPECT_EQ(1, a);
         a = 2;
         return;

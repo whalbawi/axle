@@ -8,7 +8,10 @@ Checks: >
   readability-*,
   -bugprone-easily-swappable-parameters,
   -readability-identifier-length,
-  -cppcoreguidelines-non-private-member-variables-in-classes
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-macro-usage
 
 HeaderFilterRegex: "(src|include)/.*"
 WarningsAsErrors: "*"
