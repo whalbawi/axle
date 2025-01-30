@@ -166,6 +166,22 @@ Status<None, int> EventLoop::remove_timer(uint64_t id) {
 void EventLoop::tick() {
     std::array<struct kevent, k_max_event_cnt> evs{};
     const int ret = kevent(kq_, nullptr, 0, evs.data(), evs.size(), nullptr);
+    if (ret == -1 && errno == EINTR) {
+        for (const auto& cb : timers_) {
+            cb.second(Status<None, uint32_t>::make_err(EINTR));
+        }
+
+        for (const auto& cb : fd_read_) {
+            cb.second(Status<int64_t, uint32_t>::make_err(EINTR));
+        }
+
+        for (const auto& cb : fd_write_) {
+            cb.second(Status<int64_t, uint32_t>::make_err(EINTR));
+        }
+
+        return;
+    }
+
     if (ret == -1) {
         perror("failed to wait for events");
         return;
