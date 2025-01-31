@@ -9,7 +9,7 @@
 
 namespace axle {
 
-std::unique_ptr<Scheduler> Scheduler::k_instance = nullptr;
+thread_local std::unique_ptr<Scheduler> Scheduler::k_instance = nullptr;
 
 void Scheduler::init() {
     if (k_instance == nullptr) {
@@ -20,8 +20,12 @@ void Scheduler::init() {
     }
 }
 
-void Scheduler::terminate() {
+void Scheduler::stop() {
     k_instance->done_ = true;
+}
+
+void Scheduler::fini() {
+    k_instance = nullptr;
 }
 
 void Scheduler::schedule(std::function<void()> task) {

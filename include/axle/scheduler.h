@@ -12,7 +12,8 @@ namespace axle {
 class Scheduler {
   public:
     static void init();
-    static void terminate();
+    static void stop();
+    static void fini();
 
     static void schedule(std::function<void()> task);
     static void yield();
@@ -21,7 +22,7 @@ class Scheduler {
     static std::shared_ptr<EventLoop> get_event_loop();
 
   private:
-    static std::unique_ptr<Scheduler> k_instance;
+    thread_local static std::unique_ptr<Scheduler> k_instance;
 
     explicit Scheduler(std::shared_ptr<EventLoop> event_loop);
 

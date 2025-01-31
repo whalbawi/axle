@@ -6,7 +6,7 @@
 
 namespace axle {
 
-TEST(Fibers, PingPong) {
+TEST(FiberTest, PingPong) {
     Fiber main_fiber{};
     int a = 0;
     Fiber other_fiber{[&] {
@@ -24,7 +24,7 @@ TEST(Fibers, PingPong) {
     EXPECT_EQ(3, a);
 }
 
-TEST(Fibers, ExitFromFiber) {
+TEST(FiberTest, ExitFromFiber) {
     Fiber main_fiber{};
     int a = 1;
 
@@ -37,7 +37,7 @@ TEST(Fibers, ExitFromFiber) {
     EXPECT_EXIT(main_fiber.switch_to(&fiber1), testing::ExitedWithCode(0x19), "");
 }
 
-TEST(Fibers, Chain) {
+TEST(FiberTest, Chain) {
     Fiber main_fiber{};
     int a = 0;
     Fiber fiber2{[&] {
@@ -51,6 +51,16 @@ TEST(Fibers, Chain) {
     }};
     main_fiber.switch_to(&fiber1);
     EXPECT_EQ(2, a);
+}
+
+TEST(FiberTest, Interrupt) {
+    Fiber fiber{};
+    ASSERT_FALSE(fiber.interrupted());
+
+    fiber.interrupt();
+    ASSERT_TRUE(fiber.interrupted());
+    // Fiber::interrupted resets the interrupt state
+    ASSERT_FALSE(fiber.interrupted());
 }
 
 } // namespace axle
