@@ -33,7 +33,7 @@ if(AXLE_ENABLE_ASAN)
     )
     add_link_options(-fsanitize=address)
     message("ASAN enabled")
-elseif(AXLE_UBSAN_ENABLED)
+elseif(AXLE_ENABLE_UBSAN)
     add_compile_options(
         -fsanitize=undefined
         -g
@@ -86,6 +86,7 @@ set(AXLE_TEST_LIST
     ${AXLE_TEST_DIR}/axle_test.cpp
     ${AXLE_TEST_DIR}/event_test.cpp
     ${AXLE_TEST_DIR}/fiber_test.cpp
+    ${AXLE_TEST_DIR}/scheduler_test.cpp
     ${AXLE_TEST_DIR}/status_test.cpp
 )
 
