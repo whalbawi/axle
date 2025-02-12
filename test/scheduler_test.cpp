@@ -8,15 +8,31 @@
 
 namespace axle {
 
+namespace {
+
+template <typename T>
+void maybe_shutdown(const T& a, const T& a_lim) {
+    if (a >= a_lim) {
+        Scheduler::shutdown();
+    }
+};
+
+} // namespace
+
 TEST(SchedulerTest, RunTasks) {
     int a = 0;
     Scheduler::init();
 
-    Scheduler::schedule([&] { a += 1; });
+    Scheduler::schedule([&] {
+        a += 1;
+        maybe_shutdown(a, 3);
+    });
 
-    Scheduler::schedule([&] { a += 2; });
+    Scheduler::schedule([&] {
+        a += 2;
+        maybe_shutdown(a, 3);
+    });
 
-    Scheduler::stop();
     Scheduler::yield();
     Scheduler::fini();
 
@@ -33,10 +49,12 @@ TEST(SchedulerTest, NestedScheduling) {
 
     Scheduler::schedule([&] {
         a++;
-        Scheduler::schedule([&a] { a++; });
+        Scheduler::schedule([&a] {
+            a++;
+            maybe_shutdown(a, 0);
+        });
     });
 
-    Scheduler::stop();
     Scheduler::yield();
     Scheduler::fini();
 
@@ -49,10 +67,12 @@ TEST(SchedulerTest, ManyTasks) {
     Scheduler::init();
 
     for (int i = 0; i < task_cnt; ++i) {
-        Scheduler::schedule([&] { a++; });
+        Scheduler::schedule([&] {
+            a++;
+            maybe_shutdown(a, task_cnt);
+        });
     }
 
-    Scheduler::stop();
     Scheduler::yield();
     Scheduler::fini();
 
@@ -68,10 +88,12 @@ TEST(SchedulerTest, Multithreaded) {
     std::thread thread_a = std::thread([&] {
         Scheduler::init();
         for (int i = 0; i < task_cnt_a; ++i) {
-            Scheduler::schedule([&] { a++; });
+            Scheduler::schedule([&] {
+                a++;
+                maybe_shutdown(a, task_cnt_a);
+            });
         }
 
-        Scheduler::stop();
         Scheduler::yield();
         Scheduler::fini();
     });
@@ -79,10 +101,12 @@ TEST(SchedulerTest, Multithreaded) {
     std::thread thread_b = std::thread([&] {
         Scheduler::init();
         for (int i = 0; i < task_cnt_b; ++i) {
-            Scheduler::schedule([&] { b++; });
+            Scheduler::schedule([&] {
+                b++;
+                maybe_shutdown(b, task_cnt_b);
+            });
         }
 
-        Scheduler::stop();
         Scheduler::yield();
         Scheduler::fini();
     });

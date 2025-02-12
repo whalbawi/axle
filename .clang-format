@@ -42,6 +42,9 @@ IncludeCategories:
   - Regex:           '^"gtest/.*"'                     # "gtest/gtest.h"
     SortPriority:    8
     Priority:        5
+  - Regex:           '^"benchmark/.*"'                 # "gtest/gtest.h"
+    SortPriority:    9
+    Priority:        6
   - Regex:           '^".*/'                           # "b/project"
     SortPriority:    7
     Priority:        4

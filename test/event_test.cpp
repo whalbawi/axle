@@ -300,7 +300,6 @@ TEST(EventLoopTest, Server) {
         }
         case Request::State::END: {
             server.stop();
-            request.end();
             ASSERT_TRUE(ev_loop.shutdown().is_ok());
             break;
         }
@@ -315,6 +314,9 @@ TEST(EventLoopTest, Server) {
     ASSERT_TRUE(ev_loop.register_fd_eof(conn_fd, eof_cb).is_ok());
 
     ev_loop.run();
+    ASSERT_TRUE(ev_loop.remove_fd_write(conn_fd).is_ok());
+    ASSERT_TRUE(ev_loop.remove_fd_read(conn_fd).is_ok());
+    request.end();
     server_thread.join();
 
     for (size_t i = 0; i < recv_buf.size(); ++i) {

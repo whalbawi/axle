@@ -7,7 +7,6 @@
 #include <span>
 #include <utility>
 
-#include "log.h"
 #include "axle/event.h"
 #include "axle/socket.h"
 #include "axle/status.h"
@@ -47,19 +46,11 @@ class TcpServer {
         (void)event_loop_->register_fd_read(
             socket_.get_fd(), [this](axle::Status<int64_t, uint32_t> status) {
                 if (status.is_err()) {
-                    log("notification failure for server socket: {}\n", status.err());
                     return;
                 }
                 for (int64_t i = 0; i < status.ok(); ++i) {
                     axle::Status<axle::Socket, int> accept_status = socket_.accept();
                     if (accept_status.is_err()) {
-                        switch (accept_status.err()) {
-                        case EWOULDBLOCK:
-                            break;
-                        default:
-                            log("accept failure for server socket: {}\n", status.err());
-                            break;
-                        }
                         continue;
                     }
 
@@ -78,16 +69,12 @@ class TcpServer {
         (void)event_loop_->register_fd_read(
             socket->get_fd(), [socket, session](axle::Status<int64_t, uint32_t> status) {
                 if (status.is_err()) {
-                    log("read failure from client socket: {}\n", status.err());
-
                     return;
                 }
 
                 const std::span<uint8_t> buf = session->recv_buf(status.ok());
                 axle::Status<std::span<uint8_t>, int> res = socket->recv_some(buf);
                 if (res.is_err()) {
-                    log("failed to recv\n");
-
                     return;
                 }
                 session->post_recv(res.ok());
@@ -96,36 +83,18 @@ class TcpServer {
         (void)event_loop_->register_fd_write(
             socket->get_fd(), [socket, session](axle::Status<int64_t, uint32_t> status) {
                 if (status.is_err()) {
-                    log("write failure to client socket: {}\n", status.err());
-
                     return;
                 }
 
                 const std::span<const uint8_t> buf = session->send_buf(status.ok());
                 const axle::Status<axle::None, int> res = socket->send_all(buf);
                 if (res.is_err()) {
-                    log("failed to send\n");
-
                     return;
                 }
                 session->post_send(buf.size());
             });
 
-        (void)event_loop_->register_fd_eof(socket->get_fd(), [socket, session, this]() {
-            session->end();
-
-            if (event_loop_->remove_fd_write(socket->get_fd()).is_err()) {
-                log("failed to remove fd write filter\n");
-            }
-
-            if (event_loop_->remove_fd_read(socket->get_fd()).is_err()) {
-                log("failed to remove fd read filter\n");
-            }
-
-            if (event_loop_->remove_fd_eof(socket->get_fd()).is_err()) {
-                log("failed to remove fd eof filter\n");
-            }
-        });
+        (void)event_loop_->register_fd_eof(socket->get_fd(), [session]() { session->end(); });
     }
 
     bool running() {
