@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include <array>
+#include <atomic>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -44,7 +45,7 @@ void connection_handler(const std::shared_ptr<axle::AsyncSocket>& socket) {
     }
 }
 
-volatile sig_atomic_t done = 0;
+volatile std::atomic_bool running{false};
 
 void server_loop(int port, int backlog) {
     const axle::AsyncServerSocket socket{};
@@ -54,9 +55,10 @@ void server_loop(int port, int backlog) {
         return;
     }
 
+    running.store(true);
     std::cerr << "Echo server launched on 127.0.0.1:" << port << "\n";
 
-    while (done != 1) {
+    while (running.load()) {
         axle::Status<axle::AsyncSocket, int> accept_status = socket.accept();
         if (accept_status.is_err()) {
             std::cerr << "could not accept connection - error: " << accept_status.err() << "\n";
@@ -73,8 +75,8 @@ void server_loop(int port, int backlog) {
 void signal_handler(int signal) {
     (void)signal;
 
-    done = 1;
-    axle::Scheduler::stop();
+    running.store(false);
+    axle::Scheduler::shutdown_all();
 }
 
 } // namespace

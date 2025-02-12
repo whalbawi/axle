@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "fiber.h" // IWYU pragma: keep
 #include "socket_common.h"
 #include "axle/event.h"
 #include "axle/scheduler.h"
@@ -56,9 +57,7 @@ Status<None, int> AsyncSocket::send_all(std::span<const uint8_t> buf_view) const
         case EWOULDBLOCK: {
             Status<None, int> ev_status = event_loop_->register_fd_write(
                 get_fd(), [fiber = Scheduler::current_fiber()](Status<int64_t, uint32_t> status) {
-                    if (status.is_err() && status.err() == EINTR) {
-                        fiber->interrupt();
-                    }
+                    (void)status;
                     Scheduler::resume(fiber);
                 });
             if (ev_status.is_err()) {
@@ -66,6 +65,7 @@ Status<None, int> AsyncSocket::send_all(std::span<const uint8_t> buf_view) const
             }
             Scheduler::yield();
             if (Scheduler::current_fiber()->interrupted()) {
+                (void)event_loop_->remove_fd_write(get_fd());
                 return Status<None, int>::make_err(EINTR);
             }
             continue;
@@ -90,9 +90,7 @@ Status<std::span<uint8_t>, int> AsyncSocket::recv_some(std::span<uint8_t> buf_vi
         case EWOULDBLOCK: {
             Status<None, int> ev_status = event_loop_->register_fd_read(
                 get_fd(), [fiber = Scheduler::current_fiber()](Status<int64_t, uint32_t> status) {
-                    if (status.is_err() && status.err() == EINTR) {
-                        fiber->interrupt();
-                    }
+                    (void)status;
                     Scheduler::resume(fiber);
                 });
             if (ev_status.is_err()) {
@@ -100,6 +98,7 @@ Status<std::span<uint8_t>, int> AsyncSocket::recv_some(std::span<uint8_t> buf_vi
             }
             Scheduler::yield();
             if (Scheduler::current_fiber()->interrupted()) {
+                (void)event_loop_->remove_fd_read(get_fd());
                 return Status<std::span<uint8_t>, int>::make_err(EINTR);
             }
             continue;
@@ -152,9 +151,7 @@ Status<AsyncSocket, int> AsyncServerSocket::accept() const {
         case EWOULDBLOCK: {
             Status<None, int> ev_status = event_loop_->register_fd_read(
                 get_fd(), [fiber = Scheduler::current_fiber()](Status<int64_t, uint32_t> status) {
-                    if (status.is_err() && status.err() == EINTR) {
-                        fiber->interrupt();
-                    }
+                    (void)status;
                     Scheduler::resume(fiber);
                 });
             if (ev_status.is_err()) {
@@ -162,6 +159,7 @@ Status<AsyncSocket, int> AsyncServerSocket::accept() const {
             }
             Scheduler::yield();
             if (Scheduler::current_fiber()->interrupted()) {
+                (void)event_loop_->remove_fd_read(get_fd());
                 return Status<AsyncSocket, int>::make_err(EINTR);
             }
             continue;

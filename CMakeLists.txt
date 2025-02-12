@@ -10,10 +10,12 @@ enable_testing()
 set(AXLE_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(AXLE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(AXLE_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test)
+set(AXLE_BENCH_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bench)
 set(AXLE_EXAMPLES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/examples)
 
 set(AXLE_THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 set(AXLE_GOOGLETEST_DIR ${AXLE_THIRD_PARTY_DIR}/googletest)
+set(AXLE_GOOGLEBENCHMARK_DIR ${AXLE_THIRD_PARTY_DIR}/benchmark)
 
 add_compile_options(
     -Wall
@@ -46,6 +48,8 @@ endif()
 
 # Dependencies
 add_subdirectory(${AXLE_GOOGLETEST_DIR} EXCLUDE_FROM_ALL)
+set(BENCHMARK_ENABLE_TESTING OFF)
+add_subdirectory(${AXLE_GOOGLEBENCHMARK_DIR} EXCLUDE_FROM_ALL)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -90,18 +94,24 @@ set(AXLE_TEST_LIST
     ${AXLE_TEST_DIR}/status_test.cpp
 )
 
-add_library(axle-lib ${AXLE_SRC_LIST})
-target_include_directories(axle-lib PUBLIC ${AXLE_INCLUDE_DIR} ${AXLE_SRC_DIR})
-set_target_properties(axle-lib PROPERTIES OUTPUT_NAME axle)
+# Benchmark files
+set(AXLE_BENCH_LIST
+    ${AXLE_BENCH_DIR}/async_echo_server.cpp
+)
+
+# Main library
+add_library(axle ${AXLE_SRC_LIST})
+target_include_directories(axle PUBLIC ${AXLE_INCLUDE_DIR} PRIVATE ${AXLE_SRC_DIR})
 if (AXLE_ENABLE_ASAN)
-    target_compile_definitions(axle-lib PUBLIC "AXLE_ASAN_ENABLED=1")
+    target_compile_definitions(axle PUBLIC "AXLE_ASAN_ENABLED=1")
 endif()
 
-add_executable(axle-tests ${AXLE_TEST_LIST})
-target_include_directories(axle-tests PRIVATE ${AXLE_SRC_DIR})
-target_link_libraries(axle-tests axle-lib gtest_main)
+# Unit tests
+add_executable(axle_test ${AXLE_TEST_LIST})
+target_include_directories(axle_test PRIVATE ${AXLE_SRC_DIR})
+target_link_libraries(axle_test axle gtest_main)
 
-add_test(unit-tests axle-tests)
+add_test(unit-tests axle_test)
 if(AXLE_ENABLE_ASAN)
     if(APPLE)
         set(AXLE_ASAN_OPTIONS detect_leaks=1)
@@ -115,11 +125,17 @@ if(AXLE_ENABLE_ASAN)
     )
 endif()
 
+# Benchmarks
+add_executable(axle_bench ${AXLE_BENCH_LIST})
+target_link_libraries(axle_bench axle benchmark_main)
+
+
+# Examples
 add_executable(echo_server ${AXLE_EXAMPLES_DIR}/echo_server/main.cpp)
-target_link_libraries(echo_server axle-lib)
+target_link_libraries(echo_server axle)
 
 add_executable(async_echo_server ${AXLE_EXAMPLES_DIR}/async_echo_server/main.cpp)
-target_link_libraries(async_echo_server axle-lib)
+target_link_libraries(async_echo_server axle)
 
 file(GLOB_RECURSE HDR_FILES "${AXLE_SRC_DIR}/*.h" "${AXLE_INCLUDE_DIR}/*.h")
 add_custom_target(lint
