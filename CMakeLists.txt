@@ -34,14 +34,21 @@ if(AXLE_ENABLE_ASAN)
         -g
     )
     add_link_options(-fsanitize=address)
-    message("ASAN enabled")
+    message("ASan enabled")
 elseif(AXLE_ENABLE_UBSAN)
     add_compile_options(
         -fsanitize=undefined
         -g
     )
     add_link_options(-fsanitize=undefined)
-    message("UBSAN enabled")
+    message("UBSan enabled")
+elseif(AXLE_ENABLE_TSAN)
+    add_compile_options(
+        -fsanitize=thread
+        -g
+    )
+    add_link_options(-fsanitize=thread)
+    message("TSan enabled")
 else()
     message("No sanitizers enabled")
 endif()
@@ -104,6 +111,10 @@ add_library(axle ${AXLE_SRC_LIST})
 target_include_directories(axle PUBLIC ${AXLE_INCLUDE_DIR} PRIVATE ${AXLE_SRC_DIR})
 if (AXLE_ENABLE_ASAN)
     target_compile_definitions(axle PUBLIC "AXLE_ASAN_ENABLED=1")
+endif()
+
+if (AXLE_ENABLE_TSAN)
+    target_compile_definitions(axle PUBLIC "AXLE_TSAN_ENABLED=1")
 endif()
 
 # Unit tests

@@ -54,6 +54,7 @@ jobs:
         build_type:
           - -DAXLE_ENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Release
           - -DAXLE_ENABLE_UBSAN=ON -DCMAKE_BUILD_TYPE=Release
+          - -DAXLE_ENABLE_TSAN=ON -DCMAKE_BUILD_TYPE=Release
           - -DCMAKE_BUILD_TYPE=Release
           - -DCMAKE_BUILD_TYPE=Debug
 

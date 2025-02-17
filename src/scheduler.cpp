@@ -27,7 +27,6 @@ void Scheduler::init() {
             std::unique_ptr<Scheduler> scheduler(
                 new Scheduler(std::make_shared<EventLoop>(), host_thread));
             (void)k_schedulers.emplace(host_thread, std::move(scheduler));
-
             k_instance = k_schedulers.at(host_thread).get();
         }
     }
@@ -54,6 +53,7 @@ void Scheduler::shutdown() {
 }
 
 void Scheduler::shutdown_all() {
+    const std::lock_guard<std::mutex> lk{k_schedulers_mtx};
     for (auto&& [_, scheduler] : k_schedulers) {
         scheduler->do_shutdown();
     }
