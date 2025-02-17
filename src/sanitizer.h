@@ -40,3 +40,40 @@
 #define AXLE_ASAN_FINISH_SWITCH_FIBER(to__)
 
 #endif // AXLE_ASAN_ENABLED
+
+#if AXLE_TSAN_ENABLED
+
+#include <sanitizer/tsan_interface.h>
+
+#define AXLE_TSAN_CTX_DECLARE()                                                                    \
+    struct TSanCtx {                                                                               \
+        void* fiber;                                                                               \
+        bool main_ctx;                                                                             \
+    };                                                                                             \
+    TSanCtx tsan_ctx_ {}
+
+#define AXLE_TSAN_CTX_INIT(main_ctx__)                                                             \
+    do {                                                                                           \
+        tsan_ctx_.fiber = (main_ctx__) ? __tsan_get_current_fiber() : __tsan_create_fiber(0);      \
+        tsan_ctx_.main_ctx = (main_ctx__);                                                         \
+    } while (0)
+
+#define AXLE_TSAN_CTX_FINI()                                                                       \
+    if (!tsan_ctx_.main_ctx) {                                                                     \
+        __tsan_destroy_fiber(tsan_ctx_.fiber);                                                     \
+    }
+
+#define AXLE_TSAN_SWITCH_TO_FIBER(from__, to__)                                                    \
+    do {                                                                                           \
+        (from__)->tsan_ctx_.fiber = __tsan_get_current_fiber();                                    \
+        __tsan_switch_to_fiber((to__)->tsan_ctx_.fiber, 0);                                        \
+    } while (0);
+
+#else
+
+#define AXLE_TSAN_CTX_DECLARE() static_assert(true) // NOLINT()
+#define AXLE_TSAN_CTX_INIT(main_ctx__)
+#define AXLE_TSAN_CTX_FINI()
+#define AXLE_TSAN_SWITCH_TO_FIBER(from__, to__)
+
+#endif // AXLE_TSAN_ENABLED

@@ -15,12 +15,22 @@ void axle_fiber_swap(FiberCtx* src, const FiberCtx* dst);
 
 namespace axle {
 
+Fiber::Fiber() {
+    AXLE_TSAN_CTX_INIT(true);
+}
+
 Fiber::Fiber(std::function<void()> func) : func_(std::move(func)) {
     fiber_ctx_init(&ctx_, std::span<uint8_t>(stack_), Fiber::run_func, this);
     AXLE_ASAN_CTX_INIT(stack_.data(), stack_.size());
+    AXLE_TSAN_CTX_INIT(false);
+}
+
+Fiber::~Fiber() {
+    AXLE_TSAN_CTX_FINI();
 }
 
 void Fiber::switch_to(Fiber* target) {
+    AXLE_TSAN_SWITCH_TO_FIBER(this, target);
     AXLE_ASAN_START_SWITCH_FIBER(this, target);
     axle_fiber_swap(&ctx_, &target->ctx_);
     AXLE_ASAN_FINISH_SWITCH_FIBER(this);

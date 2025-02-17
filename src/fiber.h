@@ -13,8 +13,13 @@ namespace axle {
 
 class Fiber {
   public:
-    Fiber() = default;
+    Fiber();
     explicit Fiber(std::function<void()> func);
+    Fiber(const Fiber&) = delete;
+    Fiber& operator=(const Fiber&) = delete;
+    Fiber(Fiber&&) = delete;
+    Fiber& operator=(Fiber&&) = delete;
+    ~Fiber();
 
     void switch_to(Fiber* target);
     void interrupt();
@@ -31,6 +36,7 @@ class Fiber {
     bool interrupted_{false};
 
     AXLE_ASAN_CTX_DECLARE();
+    AXLE_TSAN_CTX_DECLARE();
 };
 
 } // namespace axle
