@@ -51,3 +51,7 @@ IncludeCategories:
   - Regex:           '^".*"'                           # "project"
     SortPriority:    6
     Priority:        4
+
+---
+Language: Json
+IndentWidth: 2
