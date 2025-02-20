@@ -128,6 +128,7 @@ struct BenchEchoServer {
                 recv_view = recv_view.subspan(recv_status.ok().size());
             }
         }
+        state.SetBytesProcessed(state.iterations() * ClientBufSz);
 
         server.stop();
         axle::Scheduler::shutdown_all();
