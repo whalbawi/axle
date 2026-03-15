@@ -5,12 +5,14 @@
 #include <sys/event.h>
 
 #include <cerrno>
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 
 #include <array>
 #include <stdexcept>
+#include <utility>
 
 #include "axle/status.h"
 
@@ -99,6 +101,31 @@ Status<None, int> EventLoop::register_timer(uint64_t id,
     return Status<None, int>::make_ok();
 }
 
+Status<None, int> EventLoop::register_signal(int signo, const SignalEventCb& cb) {
+    // Save the old handler so that we can restore it when `remove_signal` is called.
+    void (*const old_handler)(int) = signal(signo, SIG_IGN);
+
+    if (old_handler == SIG_ERR) {
+        perror("could not clear signal handler");
+
+        return Status<None, int>::make_err(errno);
+    }
+
+    struct kevent ev{};
+
+    EV_SET(&ev, signo, EVFILT_SIGNAL, EV_ADD, 0, 0, nullptr);
+
+    const int ret = kevent(kq_, &ev, 1, nullptr, 0, nullptr);
+    if (ret == -1) {
+        perror("failed to register signal filter");
+
+        return Status<None, int>::make_err(errno);
+    };
+    signals_[signo] = std::make_pair(cb, old_handler);
+
+    return Status<None, int>::make_ok();
+}
+
 Status<None, int> EventLoop::remove_fd_read(int fd) {
     if (fd_read_.erase(fd) != 1) {
         return Status<None, int>::make_err(0);
@@ -164,6 +191,31 @@ Status<None, int> EventLoop::remove_timer(uint64_t id) {
     return Status<None, int>::make_ok();
 }
 
+Status<None, int> EventLoop::remove_signal(int signo) {
+    void (*sighandler)(int) = signal(signo, signals_.at(signo).second);
+
+    if (sighandler == SIG_ERR) {
+        perror("failed to reset signal handler");
+        return Status<None, int>::make_err(0);
+    }
+    if (signals_.erase(signo) != 1) {
+        return Status<None, int>::make_err(0);
+    }
+
+    struct kevent ev{};
+
+    EV_SET(&ev, signo, EVFILT_SIGNAL, EV_DELETE, 0, 0, nullptr);
+
+    const int ret = kevent(kq_, &ev, 1, nullptr, 0, nullptr);
+    if (ret == -1) {
+        perror("failed to remove signal filter");
+
+        return Status<None, int>::make_err(errno);
+    };
+
+    return Status<None, int>::make_ok();
+}
+
 void EventLoop::tick() {
     std::array<struct kevent, k_max_event_cnt> evs{};
     const struct timespec ts{.tv_sec = 0, .tv_nsec = 0};
@@ -182,11 +234,6 @@ void EventLoop::tick() {
             break;
         }
 
-        case EVFILT_TIMER: {
-            handle_timer(ev.ident, ev.flags, ev.data);
-            break;
-        }
-
         case EVFILT_READ: {
             handle_fd_read(ev.ident, ev.flags, ev.fflags, ev.data);
             break;
@@ -194,6 +241,16 @@ void EventLoop::tick() {
 
         case EVFILT_WRITE: {
             handle_fd_write(ev.ident, ev.flags, ev.fflags, ev.data);
+            break;
+        }
+
+        case EVFILT_TIMER: {
+            handle_timer(ev.ident, ev.flags, ev.data);
+            break;
+        }
+
+        case EVFILT_SIGNAL: {
+            handle_signal(ev.ident, ev.flags, ev.fflags, ev.data);
             break;
         }
 
@@ -221,26 +278,6 @@ Status<None, int> EventLoop::shutdown() const {
     }
 
     return Status<None, int>::make_ok();
-}
-
-void EventLoop::handle_shutdown(const uint64_t id) {
-    if (id == k_shutdown_event_id) {
-        done_ = true;
-    }
-}
-
-void EventLoop::handle_timer(const uint64_t id, const uint16_t flags, const uint32_t fflags) {
-    if (!timers_.contains(id)) {
-        return;
-    }
-
-    // TODO (whalbawi): Confirm what happens when a timer fails and how errors are reported.
-    const TimerEventCb& cb = timers_[id];
-    if ((flags & EV_ERROR) != 0) {
-        cb(Status<None, uint32_t>::make_err(fflags));
-    } else {
-        cb(Status<None, uint32_t>::make_ok());
-    }
 }
 
 void EventLoop::handle_fd_read(const uint64_t fd,
@@ -279,6 +316,42 @@ void EventLoop::handle_fd_write(const uint64_t fd,
     if ((flags & EV_EOF) != 0 && fd_eof_.contains(fd)) {
         const FdEventEOFCb& cb = fd_eof_[fd];
         cb();
+    }
+}
+
+void EventLoop::handle_timer(const uint64_t id, const uint16_t flags, const uint32_t fflags) {
+    if (!timers_.contains(id)) {
+        return;
+    }
+
+    // TODO (whalbawi): Confirm what happens when a timer fails and how errors are reported.
+    const TimerEventCb& cb = timers_[id];
+    if ((flags & EV_ERROR) != 0) {
+        cb(Status<None, uint32_t>::make_err(fflags));
+    } else {
+        cb(Status<None, uint32_t>::make_ok());
+    }
+}
+
+void EventLoop::handle_signal(const uint64_t signo,
+                              const uint16_t flags,
+                              const uint32_t fflags,
+                              const int64_t data) {
+    if (!signals_.contains(signo)) {
+        return;
+    }
+
+    const SignalEventCb& cb = signals_[signo].first;
+    if ((flags & EV_ERROR) != 0) {
+        cb(Status<int64_t, uint32_t>::make_err(fflags));
+    } else {
+        cb(Status<int64_t, uint32_t>::make_ok(data));
+    }
+}
+
+void EventLoop::handle_shutdown(const uint64_t id) {
+    if (id == k_shutdown_event_id) {
+        done_ = true;
     }
 }
 
