@@ -152,6 +152,6 @@ target_link_libraries(async_echo_server axle)
 file(GLOB_RECURSE HDR_FILES "${AXLE_SRC_DIR}/*.h" "${AXLE_INCLUDE_DIR}/*.h")
 add_custom_target(lint
   # COMMAND /usr/local/bin/clang-tidy -p "${CMAKE_BINARY_DIR}" --checks="-*,misc-include-cleaner" ${HDR_FILES}
-  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/run-clang-tidy.py -allow-no-checks -p=${CMAKE_BINARY_DIR}
+  COMMAND /usr/local/bin/run-clang-tidy -q -allow-no-checks -p=${CMAKE_BINARY_DIR}
   COMMENT "Running clang-tidy..."
 )
