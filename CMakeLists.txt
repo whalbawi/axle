@@ -26,6 +26,7 @@ add_compile_options(
 
 option(AXLE_ENABLE_ASAN "Enable Address Sanitizer" OFF)
 option(AXLE_ENABLE_UBSAN "Enable Undefined Behavior Sanitizer" OFF)
+option(AXLE_ENABLE_TSAN "Enable Thread Sanitizer" OFF)
 
 if(AXLE_ENABLE_ASAN)
     add_compile_options(
