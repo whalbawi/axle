@@ -2,6 +2,7 @@
 
 #include "axle/scheduler.h"
 
+#include <stdexcept>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -33,7 +34,7 @@ TEST(SchedulerTest, RunTasks) {
         maybe_shutdown(a, 3);
     });
 
-    Scheduler::yield();
+    Scheduler::run();
     Scheduler::fini();
 
     ASSERT_EQ(3, a);
@@ -55,7 +56,7 @@ TEST(SchedulerTest, NestedScheduling) {
         });
     });
 
-    Scheduler::yield();
+    Scheduler::run();
     Scheduler::fini();
 
     ASSERT_EQ(2, a);
@@ -73,7 +74,7 @@ TEST(SchedulerTest, ManyTasks) {
         });
     }
 
-    Scheduler::yield();
+    Scheduler::run();
     Scheduler::fini();
 
     ASSERT_EQ(task_cnt, a);
@@ -94,7 +95,7 @@ TEST(SchedulerTest, Multithreaded) {
             });
         }
 
-        Scheduler::yield();
+        Scheduler::run();
         Scheduler::fini();
     });
 
@@ -107,7 +108,7 @@ TEST(SchedulerTest, Multithreaded) {
             });
         }
 
-        Scheduler::yield();
+        Scheduler::run();
         Scheduler::fini();
     });
 
@@ -116,6 +117,19 @@ TEST(SchedulerTest, Multithreaded) {
 
     ASSERT_EQ(task_cnt_a, a);
     ASSERT_EQ(task_cnt_b, b);
+}
+
+TEST(SchedulerTest, YieldBeforeRun) {
+    int a = 0;
+    Scheduler::init();
+
+    Scheduler::schedule([&] {
+        a++;
+        maybe_shutdown(a, 0);
+    });
+
+    ASSERT_THROW(Scheduler::yield(), std::runtime_error);
+    Scheduler::fini();
 }
 
 } // namespace axle

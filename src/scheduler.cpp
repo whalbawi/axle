@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -63,6 +64,10 @@ void Scheduler::schedule(std::function<void()> task) {
     k_instance->do_schedule(std::move(task));
 }
 
+void Scheduler::run() {
+    k_instance->do_run();
+}
+
 std::shared_ptr<Fiber> Scheduler::current_fiber() {
     return k_instance->current_fiber_;
 }
@@ -82,10 +87,9 @@ std::shared_ptr<EventLoop> Scheduler::get_event_loop() {
 
 Scheduler::Scheduler(std::shared_ptr<EventLoop> event_loop, std::thread::id host_thread)
     : main_fiber_{std::make_shared<Fiber>()},
-      loop_fiber_{std::make_shared<Fiber>([] { k_instance->run(); })},
       current_fiber_{main_fiber_},
       event_loop_{std::move(event_loop)},
-      running_{true},
+      running_{false},
       host_thread_{host_thread} {}
 
 void Scheduler::do_schedule(std::function<void()> task) {
@@ -97,13 +101,16 @@ void Scheduler::do_schedule(std::function<void()> task) {
 }
 
 void Scheduler::do_yield() {
+    if (!running_) {
+        throw std::runtime_error("scheduler is not running");
+    }
     (void)blocked_fibers_.insert(current_fiber_);
-    switch_to(loop_fiber_);
+    switch_to(main_fiber_);
 }
 
 void Scheduler::do_fini() {
     // This is needed because we must return to the fiber executing the rest of this destructor
-    loop_fiber_ = current_fiber_;
+    main_fiber_ = current_fiber_;
 
     for (auto&& blocked_fiber : blocked_fibers_) {
         enqueue(blocked_fiber);
@@ -133,7 +140,9 @@ void Scheduler::enqueue(std::shared_ptr<Fiber> fiber) {
     ready_fibers_.push_back(std::move(fiber));
 }
 
-void Scheduler::run() {
+void Scheduler::do_run() {
+    running_.store(true);
+
     while (running_) {
         while (!ready_fibers_.empty()) {
             std::shared_ptr<Fiber> target = std::move(ready_fibers_.back());
@@ -147,10 +156,6 @@ void Scheduler::run() {
 
         event_loop_->tick();
     }
-
-    (void)blocked_fibers_.erase(main_fiber_);
-
-    switch_to(main_fiber_);
 }
 
 void Scheduler::switch_to(std::shared_ptr<Fiber> target) {
@@ -164,7 +169,7 @@ void Scheduler::switch_to(std::shared_ptr<Fiber> target) {
 
 void Scheduler::terminate_fiber() {
     terminated_fibers_.push_back(current_fiber_);
-    switch_to(loop_fiber_);
+    switch_to(main_fiber_);
 }
 
 } // namespace axle

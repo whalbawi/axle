@@ -22,6 +22,7 @@ class Scheduler {
     static void shutdown_all();
 
     static void schedule(std::function<void()> task);
+    static void run();
 
     static std::shared_ptr<Fiber> current_fiber();
     static void yield();
@@ -50,12 +51,11 @@ class Scheduler {
     void do_yield();
 
     void enqueue(std::shared_ptr<Fiber> fiber);
-    void run();
+    void do_run();
     void switch_to(std::shared_ptr<Fiber> target);
     void terminate_fiber();
 
     std::shared_ptr<Fiber> main_fiber_;
-    std::shared_ptr<Fiber> loop_fiber_;
     std::shared_ptr<Fiber> current_fiber_;
     std::shared_ptr<EventLoop> event_loop_;
 

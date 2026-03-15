@@ -97,7 +97,7 @@ struct BenchEchoServer {
         std::thread server_thread([&server] {
             axle::Scheduler::init();
             axle::Scheduler::schedule([&server] { server.start(); });
-            axle::Scheduler::yield();
+            axle::Scheduler::run();
             axle::Scheduler::fini();
         });
 
