@@ -1,5 +1,8 @@
 leak:*_fetchInitializingClassList
 leak:*tlv_get_addr
 leak:*thread-local wrapper routine
-# Github is unable to pick up the previous two suppressions. This is a temporary work-around.
+leak:dyld4::APIs::setErrorString
+
+# Github is unable to pick up the previous suppressions. The following temporary work-arounds.
 leak:*SchedulerTest_RunTasks_Test
+leak:std::runtime_error::~runtime_error

@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
         constexpr int backlog = 128;
         axle::Scheduler::init();
         axle::Scheduler::schedule([] { server_loop(port, backlog); });
-        axle::Scheduler::yield();
+        axle::Scheduler::run();
         axle::Scheduler::fini();
     } catch (const std::exception& e) {
         std::cerr << e.what() << "\n";
