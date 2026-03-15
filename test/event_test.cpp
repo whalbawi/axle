@@ -2,6 +2,9 @@
 
 #include "axle/event.h"
 
+#include <signal.h>
+#include <unistd.h>
+
 #include <cerrno>
 #include <cstdint>
 #include <cstdio>
@@ -119,6 +122,111 @@ TEST(EventLoopTest, BadFd) {
     ASSERT_EQ(EBADF, status.err());
 
     ASSERT_TRUE(ev_loop.register_fd_eof(bogus_fd, []() {}).is_err());
+}
+
+TEST(EventLoopTest, Signal) {
+    EventLoop ev_loop{};
+
+    const int signo = SIGINT;
+
+    bool signaled = false;
+    const Status<None, int> status =
+        ev_loop.register_signal(signo, [&](Status<int64_t, uint32_t> status) {
+            EXPECT_TRUE(status.is_ok());
+            signaled = true;
+            const Status<None, int> res = ev_loop.shutdown();
+            EXPECT_TRUE(res.is_ok());
+        });
+    ASSERT_TRUE(status.is_ok());
+
+    EXPECT_EQ(0, kill(getpid(), signo));
+
+    ev_loop.run();
+
+    ASSERT_TRUE(signaled);
+}
+
+TEST(EventLoopTest, SignalUpdateHandler) {
+    EventLoop ev_loop{};
+    const int signo = SIGINT;
+    int handler = 0;
+
+    const Status<None, int> status1 =
+        ev_loop.register_signal(signo, [&](Status<int64_t, uint32_t> status) {
+            EXPECT_TRUE(status.is_ok());
+            handler = 1;
+            const Status<None, int> res = ev_loop.shutdown();
+            EXPECT_TRUE(res.is_ok());
+        });
+    ASSERT_TRUE(status1.is_ok());
+
+    const Status<None, int> status2 =
+        ev_loop.register_signal(signo, [&](Status<int64_t, uint32_t> status) {
+            EXPECT_TRUE(status.is_ok());
+            handler = 2;
+            const Status<None, int> res = ev_loop.shutdown();
+            EXPECT_TRUE(res.is_ok());
+        });
+    ASSERT_TRUE(status2.is_ok());
+
+    EXPECT_EQ(0, kill(getpid(), signo));
+
+    ev_loop.run();
+
+    ASSERT_EQ(2, handler);
+}
+
+TEST(EventLoopTest, SignalDifferentSignalNumber) {
+    EventLoop ev_loop{};
+    const int signo = SIGINT;
+    bool signaled = false;
+
+    EXPECT_NE(SIG_ERR, signal(signo, SIG_DFL));
+    const Status<None, int> status =
+        ev_loop.register_signal(SIGTERM, [&](Status<int64_t, uint32_t> status) {
+            EXPECT_TRUE(status.is_ok());
+            signaled = true;
+            const Status<None, int> res = ev_loop.shutdown();
+            EXPECT_TRUE(res.is_ok());
+        });
+    ASSERT_TRUE(status.is_ok());
+
+    ASSERT_EXIT(
+        {
+            EXPECT_EQ(0, kill(getpid(), signo));
+            ev_loop.run();
+        },
+        testing::KilledBySignal(SIGINT),
+        "");
+
+    ASSERT_FALSE(signaled);
+}
+
+TEST(EventLoopTest, SignalCancelHandler) {
+    EventLoop ev_loop{};
+    const int signo = SIGINT;
+    bool signaled = false;
+
+    EXPECT_NE(SIG_ERR, signal(signo, SIG_DFL));
+    const Status<None, int> status =
+        ev_loop.register_signal(signo, [&](Status<int64_t, uint32_t> status) {
+            EXPECT_TRUE(status.is_ok());
+            signaled = true;
+            const Status<None, int> res = ev_loop.shutdown();
+            EXPECT_TRUE(res.is_ok());
+        });
+    ASSERT_TRUE(status.is_ok());
+    ASSERT_TRUE(ev_loop.remove_signal(signo).is_ok());
+
+    ASSERT_EXIT(
+        {
+            EXPECT_EQ(0, kill(getpid(), signo));
+            ev_loop.run();
+        },
+        testing::KilledBySignal(SIGINT),
+        "");
+
+    ASSERT_FALSE(signaled);
 }
 
 class IncrementServer {
