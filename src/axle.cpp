@@ -1,4 +1,4 @@
-#include "axle.h"
+#include "axle/axle.h"
 
 #include <string>
 
@@ -6,16 +6,8 @@
 
 namespace axle {
 
-std::string Axle::get_version() {
-    return "Version: " + version() + " - Commit: " + git_commit_hash();
-}
-
-void Axle::add(int a, int b) {
-    result_ = a + b;
-}
-
-int Axle::get_result() const {
-    return result_;
+std::string get_version() {
+    return "version: " + version() + " - commit: " + git_commit_hash();
 }
 
 } // namespace axle
