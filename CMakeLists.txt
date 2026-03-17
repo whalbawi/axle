@@ -54,6 +54,10 @@ else()
     message("No sanitizers enabled")
 endif()
 
+if(AXLE_ENABLE_DEBUG)
+    add_compile_definitions(AXLE_DEBUG_ENABLED)
+endif()
+
 # Dependencies
 add_subdirectory(${AXLE_GOOGLETEST_DIR} EXCLUDE_FROM_ALL)
 set(BENCHMARK_ENABLE_TESTING OFF)

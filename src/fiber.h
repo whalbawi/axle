@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include <array>
+#include <format>
 #include <functional>
 
 #include "fiber_arm64.h"
@@ -13,8 +14,8 @@ namespace axle {
 
 class Fiber {
   public:
-    Fiber();
-    explicit Fiber(std::function<void()> func);
+    explicit Fiber(std::string tag = k_empty_tag);
+    explicit Fiber(std::function<void()> func, std::string tag = k_empty_tag);
     Fiber(const Fiber&) = delete;
     Fiber& operator=(const Fiber&) = delete;
     Fiber(Fiber&&) = delete;
@@ -25,7 +26,12 @@ class Fiber {
     void interrupt();
     bool interrupted();
 
+    // TODO (whalbawi): Limit the friendship if possible/needed.
+    template <typename T, typename CharT>
+    friend struct std::formatter;
+
   private:
+    static constexpr std::string k_empty_tag;
     static constexpr size_t k_stack_sz = 32 * 1024UL;
 
     static void run_func(void* fiber_handle);
@@ -34,6 +40,7 @@ class Fiber {
     FiberCtx ctx_{};
     std::array<uint8_t, k_stack_sz> stack_{};
     bool interrupted_{false};
+    std::string tag_;
 
     AXLE_ASAN_CTX_DECLARE();
     AXLE_TSAN_CTX_DECLARE();

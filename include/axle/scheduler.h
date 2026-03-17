@@ -21,8 +21,8 @@ class Scheduler {
     static void shutdown();
     static void shutdown_all();
 
-    static void schedule(std::function<void()> task);
     static void run();
+    static void schedule(std::function<void()> task, std::string tag = {});
 
     static std::shared_ptr<Fiber> current_fiber();
     static void yield();
@@ -47,7 +47,7 @@ class Scheduler {
 
     void do_fini();
     void do_shutdown();
-    void do_schedule(std::function<void()> task);
+    void do_schedule(std::function<void()> task, std::string tag);
     void do_yield();
 
     void enqueue(std::shared_ptr<Fiber> fiber);
