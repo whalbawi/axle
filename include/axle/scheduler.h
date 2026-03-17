@@ -16,6 +16,7 @@ class Fiber;
 
 class Scheduler {
   public:
+    static void enter(std::function<void()> entry_point);
     static void init();
     static void fini();
     static void shutdown();
@@ -46,6 +47,7 @@ class Scheduler {
     Scheduler& operator=(Scheduler&&) = delete;
 
     void do_fini();
+    void do_enter(std::function<void()> entry_point);
     void do_shutdown();
     void do_schedule(std::function<void()> task, std::string tag);
     void do_yield();

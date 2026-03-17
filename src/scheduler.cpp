@@ -14,12 +14,19 @@
 #include "debug.h"
 #include "fiber.h"
 #include "axle/event.h"
+#include "axle/status.h"
 
 namespace axle {
 
 thread_local Scheduler* Scheduler::k_instance = nullptr;
 std::mutex Scheduler::k_schedulers_mtx;
 std::unordered_map<std::thread::id, std::unique_ptr<Scheduler>> Scheduler::k_schedulers;
+
+void Scheduler::enter(std::function<void()> entry_point) {
+    Scheduler::init();
+    k_instance->do_enter(std::move(entry_point));
+    log_dbg("DONE");
+}
 
 void Scheduler::init() {
     if (k_instance == nullptr) {
@@ -138,6 +145,25 @@ void Scheduler::do_fini() {
     while (!terminated_fibers_.empty()) {
         terminated_fibers_.pop_back();
     }
+}
+
+void Scheduler::do_enter(std::function<void()> entry_point) {
+    log_dbg("ENTER");
+    do_schedule(std::move(entry_point), "entry_point");
+    if (signal(SIGINT, SIG_IGN) == SIG_ERR) {
+        throw std::runtime_error("could not replace signal handler for SIGINT");
+    }
+    const Status<None, int> status = event_loop_->register_signal(SIGINT, [&](auto status) {
+        (void)status;
+        do_schedule([&] { do_shutdown(); }, "shutdown");
+    });
+
+    if (status.is_err()) {
+        throw std::runtime_error("could not register shutdown signal handler with event loop");
+    }
+
+    do_run();
+    do_fini();
 }
 
 void Scheduler::do_shutdown() {
