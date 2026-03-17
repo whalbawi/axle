@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <span>
+#include <string>
 #include <utility>
 
 #include "fiber_arm64.h"
@@ -15,11 +16,12 @@ void axle_fiber_swap(FiberCtx* src, const FiberCtx* dst);
 
 namespace axle {
 
-Fiber::Fiber() {
+Fiber::Fiber(std::string tag) : tag_(std::move(tag)) {
     AXLE_TSAN_CTX_INIT(true);
 }
 
-Fiber::Fiber(std::function<void()> func) : func_(std::move(func)) {
+Fiber::Fiber(std::function<void()> func, std::string tag)
+    : func_(std::move(func)), tag_(std::move(tag)) {
     fiber_ctx_init(&ctx_, std::span<uint8_t>(stack_), Fiber::run_func, this);
     AXLE_ASAN_CTX_INIT(stack_.data(), stack_.size());
     AXLE_TSAN_CTX_INIT(false);

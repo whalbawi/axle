@@ -1,13 +1,17 @@
 #include "axle/scheduler.h"
 
+#include <csignal>
+
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
+#include <string>
 #include <thread>
 #include <unordered_map>
 #include <utility>
 
+#include "debug.h"
 #include "fiber.h"
 #include "axle/event.h"
 
@@ -60,8 +64,8 @@ void Scheduler::shutdown_all() {
     }
 }
 
-void Scheduler::schedule(std::function<void()> task) {
-    k_instance->do_schedule(std::move(task));
+void Scheduler::schedule(std::function<void()> task, std::string tag) {
+    k_instance->do_schedule(std::move(task), std::move(tag));
 }
 
 void Scheduler::run() {
@@ -86,17 +90,20 @@ std::shared_ptr<EventLoop> Scheduler::get_event_loop() {
 }
 
 Scheduler::Scheduler(std::shared_ptr<EventLoop> event_loop, std::thread::id host_thread)
-    : main_fiber_{std::make_shared<Fiber>()},
+    : main_fiber_{std::make_shared<Fiber>("main")},
       current_fiber_{main_fiber_},
       event_loop_{std::move(event_loop)},
       running_{false},
       host_thread_{host_thread} {}
 
-void Scheduler::do_schedule(std::function<void()> task) {
-    std::shared_ptr<Fiber> fiber = std::make_shared<Fiber>([this, task = std::move(task)]() {
-        task();
-        Scheduler::terminate_fiber();
-    });
+void Scheduler::do_schedule(std::function<void()> task, std::string tag) {
+    std::shared_ptr<Fiber> fiber = std::make_shared<Fiber>(
+        [this, task = std::move(task)]() {
+            task();
+            Scheduler::terminate_fiber();
+        },
+        std::move(tag));
+    log_dbg("SCHEDU {}", fiber);
     enqueue(std::move(fiber));
 }
 
@@ -104,15 +111,15 @@ void Scheduler::do_yield() {
     if (!running_) {
         throw std::runtime_error("scheduler is not running");
     }
+    log_dbg("YIELD  {}", Scheduler::current_fiber());
     (void)blocked_fibers_.insert(current_fiber_);
     switch_to(main_fiber_);
 }
 
 void Scheduler::do_fini() {
-    // This is needed because we must return to the fiber executing the rest of this destructor
-    main_fiber_ = current_fiber_;
-
+    log_dbg("FINI   {}", Scheduler::current_fiber());
     for (auto&& blocked_fiber : blocked_fibers_) {
+        log_dbg("BLOCKD {}", blocked_fiber);
         enqueue(blocked_fiber);
     }
     blocked_fibers_.clear();
@@ -123,6 +130,7 @@ void Scheduler::do_fini() {
     while (!ready_fibers_.empty()) {
         std::shared_ptr<Fiber> target = std::move(ready_fibers_.back());
         ready_fibers_.pop_back();
+        log_dbg("INTRPT {}", target);
         target->interrupt();
         switch_to(std::move(target));
     }
@@ -133,10 +141,12 @@ void Scheduler::do_fini() {
 }
 
 void Scheduler::do_shutdown() {
+    log_dbg("SHUTDN {}", Scheduler::current_fiber());
     running_.store(false);
 }
 
 void Scheduler::enqueue(std::shared_ptr<Fiber> fiber) {
+    log_dbg("ENQUEU {}", fiber);
     ready_fibers_.push_back(std::move(fiber));
 }
 
@@ -162,12 +172,14 @@ void Scheduler::switch_to(std::shared_ptr<Fiber> target) {
     // We use a raw pointer instead of a `std::shared_ptr` to avoid leaking memory.
     // A `std::shared_ptr` will drop ref-count only if it goes out of scope, ...
     Fiber* source = current_fiber_.get();
+    log_dbg("SWITCH {} -> {}", source, target);
     current_fiber_ = std::move(target);
     //  ... which is not guaranteed to happen because the next line might not return
     source->switch_to(current_fiber_.get());
 }
 
 void Scheduler::terminate_fiber() {
+    log_dbg("TERMIN {}", current_fiber_);
     terminated_fibers_.push_back(current_fiber_);
     switch_to(main_fiber_);
 }

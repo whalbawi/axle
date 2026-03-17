@@ -27,6 +27,7 @@ void connection_handler(const std::shared_ptr<axle::AsyncSocket>& socket) {
     for (;;) {
         axle::Status<std::span<uint8_t>, int> recv_status = socket->recv_some(buf_view);
         if (recv_status.is_err()) {
+            std::cerr << "could not recv data from socket - error: " << recv_status.err() << "\n";
             (void)socket->close();
             return;
         }
@@ -68,7 +69,8 @@ void server_loop(int port, int backlog) {
         std::shared_ptr<axle::AsyncSocket> peer_socket =
             std::make_shared<axle::AsyncSocket>(accept_status.ok());
 
-        axle::Scheduler::schedule([s = std::move(peer_socket)]() { connection_handler(s); });
+        axle::Scheduler::schedule([s = std::move(peer_socket)]() { connection_handler(s); },
+                                  "connect");
     }
 }
 
@@ -94,7 +96,7 @@ int main(int argc, char** argv) {
         constexpr int port = 8080;
         constexpr int backlog = 128;
         axle::Scheduler::init();
-        axle::Scheduler::schedule([] { server_loop(port, backlog); });
+        axle::Scheduler::schedule([] { server_loop(port, backlog); }, "entry_point");
         axle::Scheduler::run();
         axle::Scheduler::fini();
     } catch (const std::exception& e) {
