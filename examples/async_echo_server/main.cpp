@@ -1,12 +1,9 @@
-#include <signal.h>
-
 #include <cerrno>
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
 
 #include <array>
-#include <atomic>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -46,8 +43,6 @@ void connection_handler(const std::shared_ptr<axle::AsyncSocket>& socket) {
     }
 }
 
-volatile std::atomic_bool running{false};
-
 void server_loop(int port, int backlog) {
     const axle::AsyncServerSocket socket{};
     axle::Status<axle::None, int> listen_status = socket.listen(port, backlog);
@@ -56,10 +51,9 @@ void server_loop(int port, int backlog) {
         return;
     }
 
-    running.store(true);
     std::cerr << "Echo server launched on 127.0.0.1:" << port << "\n";
 
-    while (running.load()) {
+    for (;;) {
         axle::Status<axle::AsyncSocket, int> accept_status = socket.accept();
         if (accept_status.is_err()) {
             std::cerr << "could not accept connection - error: " << accept_status.err() << "\n";
@@ -74,31 +68,16 @@ void server_loop(int port, int backlog) {
     }
 }
 
-void signal_handler(int signal) {
-    (void)signal;
-
-    running.store(false);
-    axle::Scheduler::shutdown_all();
-}
-
 } // namespace
 
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
 
-    if (signal(SIGINT, signal_handler) != 0) {
-        std::cerr << "failed to register signal handler - error: " << errno << "\n";
-        return -1;
-    }
-
     try {
         constexpr int port = 8080;
         constexpr int backlog = 128;
-        axle::Scheduler::init();
-        axle::Scheduler::schedule([] { server_loop(port, backlog); }, "entry_point");
-        axle::Scheduler::run();
-        axle::Scheduler::fini();
+        axle::Scheduler::enter([] { server_loop(port, backlog); });
     } catch (const std::exception& e) {
         std::cerr << e.what() << "\n";
         return -1;
