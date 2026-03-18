@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <cstdio>
 
-#include <algorithm>
 #include <array>
 #include <atomic>
 #include <span>
@@ -316,22 +315,17 @@ class Request {
           send_buf_view_{send_buf_view},
           recv_buf_view_{recv_buf_view} {}
 
-    void write(size_t max_len) {
-        const size_t len = std::min<size_t>(send_buf_view_.size(), max_len);
-        const Status<None, int> res = socket_.send_all(send_buf_view_.first(len));
+    void write() {
+        const Status<None, int> res = socket_.send_all(send_buf_view_);
         if (res.is_err()) {
             return;
         }
 
-        send_buf_view_ = send_buf_view_.subspan(len);
-        if (send_buf_view_.empty()) {
-            state_ = State::READ;
-        }
+        state_ = State::READ;
     }
 
-    void read(size_t max_len) {
-        const size_t len = std::min<size_t>(recv_buf_view_.size(), max_len);
-        Status<std::span<uint8_t>, int> res = socket_.recv_some(recv_buf_view_.first(len));
+    void read() {
+        Status<std::span<uint8_t>, int> res = socket_.recv_some(recv_buf_view_);
         if (res.is_err()) {
             return;
         }
@@ -389,7 +383,7 @@ TEST(EventLoopTest, Server) {
 
         switch (request.get_state()) {
         case Request::State::READ: {
-            request.read(status.ok());
+            request.read();
             break;
         }
         default: {
@@ -403,7 +397,7 @@ TEST(EventLoopTest, Server) {
 
         switch (request.get_state()) {
         case Request::State::WRITE: {
-            request.write(status.ok());
+            request.write();
             break;
         }
         case Request::State::END: {
@@ -422,8 +416,9 @@ TEST(EventLoopTest, Server) {
     ASSERT_TRUE(ev_loop.register_fd_eof(conn_fd, eof_cb).is_ok());
 
     ev_loop.run();
-    ASSERT_TRUE(ev_loop.remove_fd_write(conn_fd).is_ok());
+    ASSERT_TRUE(ev_loop.remove_fd_eof(conn_fd).is_ok());
     ASSERT_TRUE(ev_loop.remove_fd_read(conn_fd).is_ok());
+    ASSERT_TRUE(ev_loop.remove_fd_write(conn_fd).is_ok());
     request.end();
     server_thread.join();
 
