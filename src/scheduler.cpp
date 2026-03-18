@@ -167,7 +167,7 @@ void Scheduler::do_enter(std::function<void()> entry_point) {
 }
 
 void Scheduler::do_shutdown() {
-    log_dbg("SHUTDN {}", Scheduler::current_fiber());
+    // log_dbg("SHUTDN {}", Scheduler::current_fiber());
     running_.store(false);
 }
 

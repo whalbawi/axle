@@ -15,6 +15,9 @@ using FdEventEOFCb = std::function<void()>;
 using TimerEventCb = std::function<void(Status<None, uint32_t>)>;
 using SignalEventCb = std::function<void(Status<int64_t, uint32_t>)>;
 
+class Poller;
+struct PollOutcome;
+
 class EventLoop {
   public:
     EventLoop();
@@ -47,9 +50,8 @@ class EventLoop {
 
   private:
     static constexpr uint64_t k_shutdown_event_id = 19;
-    static constexpr size_t k_max_event_cnt = 64;
 
-    int kq_;
+    std::unique_ptr<Poller> poller_;
     bool done_ = false;
     std::unordered_map<uint64_t, FdEventIOCb> fd_read_;
     std::unordered_map<uint64_t, FdEventIOCb> fd_write_;
@@ -57,11 +59,12 @@ class EventLoop {
     std::unordered_map<uint64_t, TimerEventCb> timers_;
     std::unordered_map<uint64_t, std::pair<SignalEventCb, void (*)(int)>> signals_;
 
-    void handle_fd_read(uint64_t fd, uint16_t flags, uint32_t fflags, int64_t data);
-    void handle_fd_write(uint64_t fd, uint16_t flags, uint32_t fflags, int64_t data);
-    void handle_timer(uint64_t id, uint16_t flags, uint32_t fflags);
-    void handle_signal(uint64_t signo, uint16_t flags, uint32_t fflags, int64_t data);
-    void handle_shutdown(uint64_t id);
+    void handle_fd_read(const PollOutcome& outcome);
+    void handle_fd_write(const PollOutcome& outcome);
+    void handle_fd_eof(const PollOutcome& outcome);
+    void handle_timer(const PollOutcome& outcome);
+    void handle_signal(const PollOutcome& outcome);
+    void handle_shutdown(const PollOutcome& outcome);
 
     void do_shutdown();
 };
