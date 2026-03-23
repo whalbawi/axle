@@ -1,27 +1,26 @@
 #include "axle/event.h"
 
-#include <poller.h>
-#include <time.h>
-
 #include <cerrno>
-#include <csignal>
 #include <cstdint>
 #include <cstdio>
 
 #include <memory>
 #include <stdexcept>
-#include <utility>
 #include <vector>
 
+#include "poller.h"
 #include "axle/status.h"
 
 namespace axle {
 
 EventLoop::EventLoop() : poller_(std::make_unique<Poller>()) {
     // Register shutdown handler
-    if (poller_->register_user_event(k_shutdown_event_id) != 0) {
+    const int fd = poller_->register_user_event();
+    if (fd == -1) {
         throw std::runtime_error("failed to register shutdown handler");
     }
+
+    shutdown_event_id_ = fd;
 }
 
 EventLoop::~EventLoop() = default;
@@ -58,38 +57,28 @@ Status<None, None> EventLoop::register_fd_eof(int fd, const FdEventEOFCb& cb) {
     return Status<None, None>::make_ok();
 }
 
-Status<None, int> EventLoop::register_timer(uint64_t id,
-                                            uint64_t timeout,
-                                            bool periodic,
-                                            const TimerEventCb& cb) {
-    int ret = poller_->register_timer(id, timeout, periodic);
-    if (ret != 0) {
-        return Status<None, int>::make_err(ret);
+Status<int, int> EventLoop::register_timer(uint64_t timeout,
+                                           bool periodic,
+                                           const TimerEventCb& cb) {
+    int fd = poller_->register_timer(timeout, periodic);
+    if (fd == -1) {
+        return Status<int, int>::make_err(fd);
     }
 
-    timers_[id] = cb;
+    timers_[fd] = cb;
 
-    return Status<None, int>::make_ok();
+    return Status<int, int>::make_ok(fd);
 }
 
-Status<None, int> EventLoop::register_signal(int signo, const SignalEventCb& cb) {
-    // Save the old handler so that we can restore it when `remove_signal` is called.
-    void (*const old_handler)(int) = signal(signo, SIG_IGN);
-
-    if (old_handler == SIG_ERR) {
-        perror("could not clear signal handler");
-
-        return Status<None, int>::make_err(errno);
+Status<int, int> EventLoop::register_signal(int signo, const SignalEventCb& cb) {
+    int fd = poller_->register_signal(signo);
+    if (fd == -1) {
+        return Status<int, int>::make_err(fd);
     }
 
-    int ret = poller_->register_signal(signo);
-    if (ret != 0) {
-        return Status<None, int>::make_err(ret);
-    }
+    signals_[fd] = cb;
 
-    signals_[signo] = std::make_pair(cb, old_handler);
-
-    return Status<None, int>::make_ok();
+    return Status<int, int>::make_ok(fd);
 }
 
 Status<None, int> EventLoop::remove_fd_read(int fd) {
@@ -126,7 +115,7 @@ Status<None, None> EventLoop::remove_fd_eof(int fd) {
     return Status<None, None>::make_ok();
 }
 
-Status<None, int> EventLoop::remove_timer(uint64_t id) {
+Status<None, int> EventLoop::remove_timer(int id) {
     if (timers_.erase(id) != 1) {
         return Status<None, int>::make_err(0);
     }
@@ -139,20 +128,13 @@ Status<None, int> EventLoop::remove_timer(uint64_t id) {
     return Status<None, int>::make_ok();
 }
 
-Status<None, int> EventLoop::remove_signal(int signo) {
-    void (*sighandler)(int) = signal(signo, signals_.at(signo).second);
-
-    if (sighandler == SIG_ERR) {
-        perror("failed to reset signal handler");
-        return Status<None, int>::make_err(0);
-    }
-
-    int ret = poller_->remove_signal(signo);
+Status<None, int> EventLoop::remove_signal(int fd) {
+    int ret = poller_->remove_signal(fd);
     if (ret != 0) {
         return Status<None, int>::make_err(ret);
     }
 
-    if (signals_.erase(signo) != 1) {
+    if (signals_.erase(fd) != 1) {
         return Status<None, int>::make_err(0);
     }
 
@@ -200,7 +182,7 @@ void EventLoop::run() {
 }
 
 Status<None, int> EventLoop::shutdown() const {
-    int ret = poller_->notify_user(k_shutdown_event_id);
+    int ret = poller_->notify_user(shutdown_event_id_);
     if (ret != 0) {
         perror("failed to schedule shutdown event");
 
@@ -249,7 +231,7 @@ void EventLoop::handle_timer(const PollOutcome& outcome) {
         return;
     }
 
-    const TimerEventCb& cb = timers_[outcome.id];
+    const TimerEventCb cb = timers_[outcome.id];
     if (outcome.state == PollState::ERR) {
         cb(Status<None, uint32_t>::make_err(0));
     } else {
@@ -262,7 +244,7 @@ void EventLoop::handle_signal(const PollOutcome& outcome) {
         return;
     }
 
-    const SignalEventCb& cb = signals_[outcome.id].first;
+    const SignalEventCb& cb = signals_[outcome.id];
     if (outcome.state == PollState::ERR) {
         cb(Status<int64_t, uint32_t>::make_err(0));
     } else {
@@ -271,7 +253,7 @@ void EventLoop::handle_signal(const PollOutcome& outcome) {
 }
 
 void EventLoop::handle_shutdown(const PollOutcome& outcome) {
-    if (outcome.id == k_shutdown_event_id) {
+    if (outcome.id == shutdown_event_id_) {
         done_ = true;
     }
 }

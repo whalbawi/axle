@@ -90,13 +90,16 @@ set(AXLE_SRC_LIST
     ${AXLE_SRC_DIR}/axle.cpp
     ${AXLE_SRC_DIR}/event.cpp
     ${AXLE_SRC_DIR}/fiber.cpp
-    ${AXLE_SRC_DIR}/poller.cpp
     ${AXLE_SRC_DIR}/scheduler.cpp
     ${AXLE_SRC_DIR}/socket.cpp
     ${AXLE_SRC_DIR}/fiber_arm64.cpp
     ${AXLE_SRC_DIR}/asm/fiber_arm64.S
     ${CMAKE_CURRENT_BINARY_DIR}/gen/version.cpp
 )
+
+if (CMAKE_SYSTEM_NAME MATCHES "FreeBSD|Darwin")
+    list(APPEND AXLE_SRC_LIST ${AXLE_SRC_DIR}/poller_bsd.cpp)
+endif ()
 
 # Test files
 set(AXLE_TEST_LIST
