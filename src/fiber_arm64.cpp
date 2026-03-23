@@ -1,6 +1,5 @@
 #include "fiber_arm64.h"
 
-#include <cstddef>
 #include <cstdint>
 
 #include <span>
