@@ -1,5 +1,7 @@
 #include "fiber.h"
 
+#include <unistd.h>
+
 #include <cstdint>
 
 #include <functional>
@@ -15,6 +17,10 @@ void axle_fiber_swap(FiberCtx* src, const FiberCtx* dst);
 }
 
 namespace axle {
+
+enum : uint8_t {
+    FIBER_EXIT_CODE = 0x19,
+};
 
 Fiber::Fiber(std::string tag) : tag_(std::move(tag)) {
     AXLE_TSAN_CTX_INIT(true);
@@ -51,6 +57,10 @@ void Fiber::run_func(void* fiber_handle) {
     Fiber* fiber = reinterpret_cast<Fiber*>(fiber_handle);
     AXLE_ASAN_FINISH_SWITCH_FIBER(fiber);
     fiber->func_();
+    // Exit the program if the fiber's entry point ever returns.
+    // Note the use of `_exit` and not `exit` because we don't want to run destructors on the wrong
+    // fiber context.
+    _exit(FIBER_EXIT_CODE);
 }
 
 } // namespace axle

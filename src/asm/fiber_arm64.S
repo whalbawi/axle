@@ -2,12 +2,14 @@
 
 #include "fiber_reg_off_arm64.h"
 
+#include "asm/platform.h"
+
 // x0: src
 // x1: dst
 .text
-.global _axle_fiber_swap
+.global ASM_SYM(axle_fiber_swap)
 .align 4
-_axle_fiber_swap:
+ASM_SYM(axle_fiber_swap):
     // Store special purpose registers
     str x16, [x0, #AXLE_REG_OFF_ARM64_X16]
     str x17, [x0, #AXLE_REG_OFF_ARM64_X17]
@@ -81,9 +83,5 @@ _axle_fiber_swap:
 
     blr lr
 
-    // Exit the program if the fiber's entry point ever returns
-    mov x0, #0x19
-    mov x16, #1
-    svc 0x80
-
 #endif // defined(__aarch64__)
+
