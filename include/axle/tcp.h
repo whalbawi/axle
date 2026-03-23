@@ -3,6 +3,7 @@
 #include <cerrno>
 #include <cstdint>
 
+#include <atomic>
 #include <memory>
 #include <span>
 #include <utility>

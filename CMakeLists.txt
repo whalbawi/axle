@@ -101,6 +101,10 @@ if (CMAKE_SYSTEM_NAME MATCHES "FreeBSD|Darwin")
     list(APPEND AXLE_SRC_LIST ${AXLE_SRC_DIR}/poller_bsd.cpp)
 endif ()
 
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    list(APPEND AXLE_SRC_LIST ${AXLE_SRC_DIR}/poller_linux.cpp)
+endif ()
+
 # Test files
 set(AXLE_TEST_LIST
     ${AXLE_TEST_DIR}/axle_test.cpp
