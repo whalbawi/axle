@@ -1,10 +1,12 @@
-#include "poller.h"
+#include "poller_bsd.h"
 
+#include <signal.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/event.h>
 
 #include <cerrno>
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
 
@@ -12,11 +14,42 @@
 #include <stdexcept>
 #include <vector>
 
+#include "poller_common.h"
+
 namespace axle {
+
+namespace {
+
+int signal_block(int signo) {
+    auto old = signal(signo, SIG_IGN);
+    if (old == SIG_ERR) {
+        return errno;
+    }
+
+    return 0;
+}
+
+int signal_unblock(int signo) {
+    auto old = signal(signo, SIG_DFL);
+    if (old == SIG_ERR) {
+        return errno;
+    }
+
+    return 0;
+}
+
+} // namespace
 
 Poller::Poller() : poller_fd_(kqueue()) {
     if (poller_fd_ == -1) {
         throw std::runtime_error("failed to initialize poller with kqueue");
+    }
+}
+
+Poller::~Poller() noexcept {
+    const int ret = close(poller_fd_);
+    if (ret == -1) {
+        perror("failed to close poller file descriptor");
     }
 }
 
@@ -80,19 +113,6 @@ std::vector<PollOutcome> Poller::poll() const {
     return outcomes;
 }
 
-int Poller::register_user_event(int id) const {
-    struct kevent ev{};
-    EV_SET(&ev, id, EVFILT_USER, EV_ADD, 0, 0, nullptr);
-
-    const int ret = kevent(poller_fd_, &ev, 1, nullptr, 0, nullptr);
-    if (ret != 0) {
-        perror("failed to register kqueue user event");
-        return errno;
-    }
-
-    return 0;
-}
-
 int Poller::register_fd_read(int fd) const {
     struct kevent ev{};
     EV_SET(&ev, fd, EVFILT_READ, EV_ADD, 0, 0, nullptr);
@@ -121,7 +141,22 @@ int Poller::register_fd_write(int fd) const {
     return 0;
 }
 
-int Poller::register_timer(uint64_t id, uint64_t timeout, bool periodic) const {
+int Poller::register_user_event() {
+    const int id = next_id_++;
+    struct kevent ev{};
+    EV_SET(&ev, id, EVFILT_USER, EV_ADD, 0, 0, nullptr);
+
+    const int ret = kevent(poller_fd_, &ev, 1, nullptr, 0, nullptr);
+    if (ret != 0) {
+        perror("failed to register kqueue user event");
+        return errno;
+    }
+
+    return id;
+}
+
+int Poller::register_timer(uint64_t timeout, bool periodic) {
+    const int id = next_id_++;
     struct kevent ev{};
     const uint16_t oneshot = periodic ? 0 : EV_ONESHOT;
     EV_SET(&ev, id, EVFILT_TIMER, EV_ADD | oneshot, NOTE_NSECONDS, timeout, nullptr);
@@ -133,7 +168,7 @@ int Poller::register_timer(uint64_t id, uint64_t timeout, bool periodic) const {
         return errno;
     };
 
-    return 0;
+    return id;
 }
 
 int Poller::register_signal(int signo) const {
@@ -147,7 +182,12 @@ int Poller::register_signal(int signo) const {
         return errno;
     };
 
-    return 0;
+    const int ret_signal = signal_block(signo);
+    if (ret_signal != 0) {
+        return ret_signal;
+    }
+
+    return signo;
 }
 
 int Poller::notify_user(int id) const {
@@ -157,20 +197,6 @@ int Poller::notify_user(int id) const {
     const int ret = kevent(poller_fd_, &ev, 1, nullptr, 0, nullptr);
     if (ret == -1) {
         perror("failed to register signal filter");
-
-        return errno;
-    };
-
-    return 0;
-}
-
-int Poller::remove_user_event(int id) const {
-    struct kevent ev{};
-    EV_SET(&ev, id, EVFILT_USER, EV_DELETE, 0, 0, nullptr);
-
-    const int ret = kevent(poller_fd_, &ev, 1, nullptr, 0, nullptr);
-    if (ret == -1) {
-        perror("failed to remove user filter");
 
         return errno;
     };
@@ -206,7 +232,21 @@ int Poller::remove_fd_write(int fd) const {
     return 0;
 }
 
-int Poller::remove_timer(uint64_t id) const {
+int Poller::remove_user_event(int id) const {
+    struct kevent ev{};
+    EV_SET(&ev, id, EVFILT_USER, EV_DELETE, 0, 0, nullptr);
+
+    const int ret = kevent(poller_fd_, &ev, 1, nullptr, 0, nullptr);
+    if (ret == -1) {
+        perror("failed to remove user filter");
+
+        return errno;
+    };
+
+    return 0;
+}
+
+int Poller::remove_timer(int id) const {
     struct kevent ev{};
     EV_SET(&ev, id, EVFILT_TIMER, EV_DELETE, 0, 0, nullptr);
 
@@ -220,9 +260,14 @@ int Poller::remove_timer(uint64_t id) const {
     return 0;
 }
 
-int Poller::remove_signal(int signo) const {
+int Poller::remove_signal(int id) const {
+    const int ret_signal = signal_unblock(id);
+    if (ret_signal != 0) {
+        return ret_signal;
+    }
+
     struct kevent ev{};
-    EV_SET(&ev, signo, EVFILT_SIGNAL, EV_DELETE, 0, 0, nullptr);
+    EV_SET(&ev, id, EVFILT_SIGNAL, EV_DELETE, 0, 0, nullptr);
 
     const int ret = kevent(poller_fd_, &ev, 1, nullptr, 0, nullptr);
     if (ret == -1) {
@@ -232,13 +277,6 @@ int Poller::remove_signal(int signo) const {
     };
 
     return 0;
-}
-
-Poller::~Poller() noexcept {
-    const int ret = close(poller_fd_);
-    if (ret == -1) {
-        perror("failed to close poller file descriptor");
-    }
 }
 
 } // namespace axle

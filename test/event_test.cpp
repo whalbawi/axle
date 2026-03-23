@@ -6,8 +6,10 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 
 #include <array>
 #include <atomic>
@@ -25,7 +27,6 @@ namespace axle {
 
 TEST(EventLoopTest, TimerOneshot) {
     EventLoop ev_loop;
-    const int timer_id = 1;
     const uint64_t delay = 5e8;
     bool called = false;
 
@@ -38,7 +39,7 @@ TEST(EventLoopTest, TimerOneshot) {
         EXPECT_TRUE(res.is_ok());
     };
 
-    const Status<None, int> res = ev_loop.register_timer(timer_id, delay, false /* periodic */, cb);
+    const Status<int, int> res = ev_loop.register_timer(delay, false /* periodic */, cb);
     ASSERT_TRUE(res.is_ok());
 
     ev_loop.run();
@@ -48,7 +49,6 @@ TEST(EventLoopTest, TimerOneshot) {
 
 TEST(EventLoopTest, TimerPeriodic) {
     EventLoop ev_loop;
-    const int timer_id = 1;
     const uint64_t delay = 5e8;
     int counter = 0;
     int counter_max = 4;
@@ -64,7 +64,7 @@ TEST(EventLoopTest, TimerPeriodic) {
         }
     };
 
-    const Status<None, int> res = ev_loop.register_timer(timer_id, delay, true /* periodic */, cb);
+    const Status<int, int> res = ev_loop.register_timer(delay, true /* periodic */, cb);
     ASSERT_TRUE(res.is_ok());
 
     ev_loop.run();
@@ -72,9 +72,11 @@ TEST(EventLoopTest, TimerPeriodic) {
     ASSERT_EQ(counter_max, counter);
 }
 
+// TODO (whalbawi): Fill me
+TEST(EventLoopTest, DISABLED_TimerDoubleRegister) {}
+
 TEST(EventLoopTest, TimerUpdate) {
     EventLoop ev_loop;
-    int timer_id = 1;
     const uint64_t delay = 5e8;
     int counter = 0;
     int counter_max = 4;
@@ -89,28 +91,32 @@ TEST(EventLoopTest, TimerUpdate) {
         EXPECT_TRUE(res.is_ok());
     };
 
+    int fd = 0;
     const TimerEventCb cb_periodic = [&](Status<None, uint32_t> status) {
         EXPECT_TRUE(status.is_ok());
         ++counter;
         if (counter == counter_max) {
-            const Status<None, int> res =
-                ev_loop.register_timer(timer_id, delay, false /* periodic */, cb_oneshot);
-            EXPECT_TRUE(res.is_ok());
+            const Status<None, int> rem_res = ev_loop.remove_timer(fd);
+            EXPECT_TRUE(rem_res.is_ok());
+            const Status<int, int> reg_res =
+                ev_loop.register_timer(delay, false /* periodic */, cb_oneshot);
+            EXPECT_TRUE(reg_res.is_ok());
         }
     };
 
-    const Status<None, int> res =
-        ev_loop.register_timer(timer_id, delay, true /* periodic */, cb_periodic);
+    Status<int, int> res = ev_loop.register_timer(delay, true /* periodic */, cb_periodic);
     ASSERT_TRUE(res.is_ok());
+    fd = res.ok();
 
     ev_loop.run();
 
     ASSERT_EQ(counter_max, counter);
+    ASSERT_TRUE(called);
 }
 
 TEST(EventLoopTest, BadFd) {
     EventLoop ev_loop{};
-    const int bogus_fd = 5;
+    const int bogus_fd = -2;
 
     Status<None, int> status = ev_loop.register_fd_read(bogus_fd, [](Status<int64_t, uint32_t>) {});
     ASSERT_TRUE(status.is_err());
@@ -129,13 +135,12 @@ TEST(EventLoopTest, Signal) {
     const int signo = SIGINT;
 
     bool signaled = false;
-    const Status<None, int> status =
-        ev_loop.register_signal(signo, [&](Status<int64_t, uint32_t> status) {
-            EXPECT_TRUE(status.is_ok());
-            signaled = true;
-            const Status<None, int> res = ev_loop.shutdown();
-            EXPECT_TRUE(res.is_ok());
-        });
+    Status<int, int> status = ev_loop.register_signal(signo, [&](Status<int64_t, uint32_t> status) {
+        EXPECT_TRUE(status.is_ok());
+        signaled = true;
+        const Status<None, int> res = ev_loop.shutdown();
+        EXPECT_TRUE(res.is_ok());
+    });
     ASSERT_TRUE(status.is_ok());
 
     EXPECT_EQ(0, kill(getpid(), signo));
@@ -143,6 +148,7 @@ TEST(EventLoopTest, Signal) {
     ev_loop.run();
 
     ASSERT_TRUE(signaled);
+    ASSERT_TRUE(ev_loop.remove_signal(status.ok()).is_ok());
 }
 
 TEST(EventLoopTest, SignalUpdateHandler) {
@@ -150,7 +156,7 @@ TEST(EventLoopTest, SignalUpdateHandler) {
     const int signo = SIGINT;
     int handler = 0;
 
-    const Status<None, int> status1 =
+    Status<int, int> status1 =
         ev_loop.register_signal(signo, [&](Status<int64_t, uint32_t> status) {
             EXPECT_TRUE(status.is_ok());
             handler = 1;
@@ -159,7 +165,10 @@ TEST(EventLoopTest, SignalUpdateHandler) {
         });
     ASSERT_TRUE(status1.is_ok());
 
-    const Status<None, int> status2 =
+    const Status<None, int> remove_status = ev_loop.remove_signal(status1.ok());
+    ASSERT_TRUE(remove_status.is_ok());
+
+    Status<int, int> status2 =
         ev_loop.register_signal(signo, [&](Status<int64_t, uint32_t> status) {
             EXPECT_TRUE(status.is_ok());
             handler = 2;
@@ -173,6 +182,7 @@ TEST(EventLoopTest, SignalUpdateHandler) {
     ev_loop.run();
 
     ASSERT_EQ(2, handler);
+    ASSERT_TRUE(ev_loop.remove_signal(status2.ok()).is_ok());
 }
 
 TEST(EventLoopTest, SignalDifferentSignalNumber) {
@@ -181,7 +191,7 @@ TEST(EventLoopTest, SignalDifferentSignalNumber) {
     bool signaled = false;
 
     EXPECT_NE(SIG_ERR, signal(signo, SIG_DFL));
-    const Status<None, int> status =
+    Status<int, int> status =
         ev_loop.register_signal(SIGTERM, [&](Status<int64_t, uint32_t> status) {
             EXPECT_TRUE(status.is_ok());
             signaled = true;
@@ -195,10 +205,11 @@ TEST(EventLoopTest, SignalDifferentSignalNumber) {
             EXPECT_EQ(0, kill(getpid(), signo));
             ev_loop.run();
         },
-        testing::KilledBySignal(SIGINT),
+        testing::KilledBySignal(signo),
         "");
 
     ASSERT_FALSE(signaled);
+    ASSERT_TRUE(ev_loop.remove_signal(status.ok()).is_ok());
 }
 
 TEST(EventLoopTest, SignalCancelHandler) {
@@ -206,23 +217,21 @@ TEST(EventLoopTest, SignalCancelHandler) {
     const int signo = SIGINT;
     bool signaled = false;
 
-    EXPECT_NE(SIG_ERR, signal(signo, SIG_DFL));
-    const Status<None, int> status =
-        ev_loop.register_signal(signo, [&](Status<int64_t, uint32_t> status) {
-            EXPECT_TRUE(status.is_ok());
-            signaled = true;
-            const Status<None, int> res = ev_loop.shutdown();
-            EXPECT_TRUE(res.is_ok());
-        });
+    Status<int, int> status = ev_loop.register_signal(signo, [&](Status<int64_t, uint32_t> status) {
+        EXPECT_TRUE(status.is_ok());
+        signaled = true;
+        const Status<None, int> res = ev_loop.shutdown();
+        EXPECT_TRUE(res.is_ok());
+    });
     ASSERT_TRUE(status.is_ok());
-    ASSERT_TRUE(ev_loop.remove_signal(signo).is_ok());
+    ASSERT_TRUE(ev_loop.remove_signal(status.ok()).is_ok());
 
     ASSERT_EXIT(
         {
             EXPECT_EQ(0, kill(getpid(), signo));
             ev_loop.run();
         },
-        testing::KilledBySignal(SIGINT),
+        testing::KilledBySignal(signo),
         "");
 
     ASSERT_FALSE(signaled);

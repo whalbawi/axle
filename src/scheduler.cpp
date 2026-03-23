@@ -150,10 +150,7 @@ void Scheduler::do_fini() {
 void Scheduler::do_enter(std::function<void()> entry_point) {
     log_dbg("ENTER");
     do_schedule(std::move(entry_point), "entry_point");
-    if (signal(SIGINT, SIG_IGN) == SIG_ERR) {
-        throw std::runtime_error("could not replace signal handler for SIGINT");
-    }
-    const Status<None, int> status = event_loop_->register_signal(SIGINT, [&](auto status) {
+    const Status<int, int> status = event_loop_->register_signal(SIGINT, [&](auto status) {
         (void)status;
         do_schedule([&] { do_shutdown(); }, "shutdown");
     });
