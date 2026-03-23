@@ -3,8 +3,17 @@
 #include <concepts>
 #include <format>
 #include <memory>
+#include <type_traits>
 
 #include "fiber.h"
+
+#if !defined(AXLE_DEBUG_ENABLED)
+#if !defined(NDEBUG)
+#define AXLE_DEBUG_ENABLED 1
+#else
+#define AXLE_DEBUG_ENABLED 0
+#endif // !defined(NDEBUG)
+#endif // !defined(AXLE_DEBUG_ENABLED)
 
 #if AXLE_DEBUG_ENABLED
 #include <iostream>
@@ -16,7 +25,8 @@
 
 template <typename T>
 concept pointer_to_fiber = requires(const T& t) {
-    { std::to_address(t) } -> std::convertible_to<const axle::Fiber*>;
+    { *t } -> std::convertible_to<const axle::Fiber&>;
+    requires std::is_pointer_v<T> || requires { t.operator->(); };
 };
 
 template <pointer_to_fiber T>
@@ -37,6 +47,7 @@ struct std::formatter<T> {
         return std::format_to(ctx.out(), "{}", fiber->tag_);
     }
 };
+
 namespace axle {
 
 template <typename... Args>
@@ -56,5 +67,14 @@ void log_dbg(std::format_string<Args...> fmt, Args&&... args) {
               << std::format(fmt, std::forward<Args>(args)...) << '\n';
 #endif
 }
+
+#if AXLE_DEBUG_ENABLED
+#define AXLE_ASSERT(cond) (void)(cond);
+#else
+#define AXLE_ASSERT(cond)                                                                          \
+    {                                                                                              \
+        assert(cond);                                                                              \
+    }
+#endif // NDEBUG
 
 } // namespace axle

@@ -4,7 +4,13 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/types.h>
+
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#define AXLE_USE_SO_NOSIGPIPE
+#endif // MSG_NOSIGNAL
 
 static int do_fcntl(int fd, int cmd, int flags) {
     return fcntl(fd, cmd, flags); // NOLINT(cppcoreguidelines-pro-type-vararg, misc-include-cleaner)
@@ -51,7 +57,12 @@ inline Status<None, int> set_non_blocking(const int fd) {
 }
 
 inline Status<None, int> set_opt_nosigpipe(const int fd) {
+#ifdef AXLE_USE_NOSIGPIPE
     return do_setsockopt(fd, SO_NOSIGPIPE);
+#else
+    (void)fd;
+    return Status<None, int>::make_ok();
+#endif // AXLE_USE_NOSIGPIPE
 }
 
 inline Status<None, int> set_opt_reuseaddr(const int fd) {
@@ -61,7 +72,7 @@ inline Status<None, int> set_opt_reuseaddr(const int fd) {
 inline Status<std::span<const uint8_t>, int> send(const int fd,
                                                   const std::span<const uint8_t> buf) {
     // NOLINTNEXTLINE(misc-include-cleaner) -- for ssize_t
-    const ssize_t len = write(fd, buf.data(), buf.size());
+    const ssize_t len = ::send(fd, buf.data(), buf.size(), MSG_NOSIGNAL);
     if (len == -1) {
         return Status<std::span<const uint8_t>, int>::make_err(errno);
     }
