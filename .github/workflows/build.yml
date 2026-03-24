@@ -11,7 +11,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
         submodules: recursive
@@ -29,11 +29,11 @@ jobs:
             git clang-format --diff HEAD^
         fi
 
-  lint:
+  lint-macos:
     runs-on: macos-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v6
       with:
          submodules: recursive
 
@@ -41,7 +41,33 @@ jobs:
       run: ./tools/install-deps.sh
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)
+      run: >
+        cmake -B ${{github.workspace}}/build
+        -DCMAKE_CXX_COMPILER=clang++
+        -DCMAKE_C_COMPILER=clang
+        -DCMAKE_ASM_COMPILER=clang
+        -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)
+
+    - name: Run clang-tidy
+      run: cmake --build ${{github.workspace}}/build -t lint
+
+  lint-linux:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+         submodules: recursive
+
+    - name: Setup environment
+      run: ./tools/install-deps.sh
+
+    - name: Configure CMake
+      run: >
+        cmake -B ${{github.workspace}}/build
+        -DCMAKE_CXX_COMPILER=clang++
+        -DCMAKE_C_COMPILER=clang
+        -DCMAKE_ASM_COMPILER=clang
 
     - name: Run clang-tidy
       run: cmake --build ${{github.workspace}}/build -t lint
@@ -50,7 +76,7 @@ jobs:
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
-        os: [ macos-latest ]
+        os: [ macos-latest, ubuntu-24.04-arm ]
         build_type:
           - -DAXLE_ENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Release
           - -DAXLE_ENABLE_UBSAN=ON -DCMAKE_BUILD_TYPE=Release
@@ -59,7 +85,7 @@ jobs:
           - -DCMAKE_BUILD_TYPE=Debug
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v6
       with:
         submodules: recursive
 
@@ -67,10 +93,32 @@ jobs:
       run: ./tools/install-deps.sh
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build ${{ matrix.build_type }} -DCMAKE_CXX_COMPILER=/usr/local/bin/clang++
+      run: >
+        cmake -B ${{github.workspace}}/build ${{ matrix.build_type }}
+        -DCMAKE_CXX_COMPILER=clang++
+        -DCMAKE_C_COMPILER=clang
+        -DCMAKE_ASM_COMPILER=clang
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build
 
     - name: Run unit tests
       run: ctest --test-dir ${{github.workspace}}/build -R unit-tests -V
+
+  build-result:
+    if: always()
+    needs: [format, lint-macos, lint-linux, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate results
+        run: |
+          if [ "${{ needs.format.result }}" == "success" ] &&
+             [ "${{ needs.lint-macos.result }}" == "success" ] &&
+             [ "${{ needs.lint-linux.result }}" == "success" ] &&
+             [ "${{ needs.build.result }}" == "success" ]; then
+            echo "All jobs succeeded"
+            exit 0
+          else
+            echo "One or more jobs failed"
+            exit 1
+          fi
