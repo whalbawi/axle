@@ -69,12 +69,12 @@ void log_dbg(std::format_string<Args...> fmt, Args&&... args) {
 }
 
 #if AXLE_DEBUG_ENABLED
-#define AXLE_ASSERT(cond) (void)(cond);
-#else
 #define AXLE_ASSERT(cond)                                                                          \
     {                                                                                              \
         assert(cond);                                                                              \
     }
+#else
+#define AXLE_ASSERT(cond) (void)(cond);
 #endif // NDEBUG
 
 } // namespace axle

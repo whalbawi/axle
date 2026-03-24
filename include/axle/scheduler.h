@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <functional>
 #include <list>
 #include <memory>
@@ -34,6 +36,14 @@ class Scheduler {
     ~Scheduler() = default;
 
   private:
+    enum class State : uint8_t {
+        INITED,
+        RUNNING,
+        SHUTDOWN,
+    };
+
+    static void ensure_inited();
+
     thread_local static Scheduler* k_instance;
 
     static std::mutex k_schedulers_mtx;
@@ -65,7 +75,7 @@ class Scheduler {
     std::unordered_set<std::shared_ptr<Fiber>> blocked_fibers_;
     std::list<std::shared_ptr<Fiber>> terminated_fibers_;
 
-    std::atomic_bool running_;
+    std::atomic<State> state_;
     const std::thread::id host_thread_;
 };
 
