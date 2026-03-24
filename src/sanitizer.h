@@ -9,6 +9,7 @@
         Fiber* from;                                                                               \
         void* stack_base;                                                                          \
         size_t stack_sz;                                                                           \
+        void* fake_stack;                                                                          \
     };                                                                                             \
     ASanCtx asan_ctx_ {}
 
@@ -22,14 +23,16 @@
     do {                                                                                           \
         ASanCtx* asan_ctx__ = &(to__)->asan_ctx_;                                                  \
         asan_ctx__->from = from__;                                                                 \
-        __sanitizer_start_switch_fiber(nullptr, asan_ctx__->stack_base, asan_ctx__->stack_sz);     \
+        __sanitizer_start_switch_fiber(                                                            \
+            &(from__)->asan_ctx_.fake_stack, asan_ctx__->stack_base, asan_ctx__->stack_sz);        \
     } while (0)
 
 #define AXLE_ASAN_FINISH_SWITCH_FIBER(to__)                                                        \
     do {                                                                                           \
         ASanCtx* asan_ctx__ = &(to__)->asan_ctx_.from->asan_ctx_;                                  \
-        __sanitizer_finish_switch_fiber(                                                           \
-            nullptr, (const void**)&asan_ctx__->stack_base, &asan_ctx__->stack_sz);                \
+        __sanitizer_finish_switch_fiber((to__)->asan_ctx_.fake_stack,                              \
+                                        (const void**)&asan_ctx__->stack_base,                     \
+                                        &asan_ctx__->stack_sz);                                    \
     } while (0)
 
 #else

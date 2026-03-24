@@ -29,21 +29,24 @@ int signal_procmask(int signo, int action) {
     // NOLINTNEXTLINE(misc-include-cleaner) -- https://github.com/llvm/llvm-project/issues/120830
     sigset_t signals{};
     if (sigemptyset(&signals) == -1) {
+        const int err = errno;
         perror("could not create empty signal set");
 
-        return errno;
+        return err;
     }
 
     if (sigaddset(&signals, signo) == -1) {
+        const int err = errno;
         perror("could not add signal to signal set");
 
-        return errno;
+        return err;
     }
 
     if (sigprocmask(action, &signals, nullptr) == -1) {
+        const int err = errno;
         perror("could not modify signal mask");
 
-        return errno;
+        return err;
     }
 
     return 0;
@@ -153,9 +156,10 @@ int Poller::register_fd_read(int fd) {
 
     const int ret = epoll_ctl(poller_fd_, op, fd, &ev);
     if (ret == -1) {
+        const int err = errno;
         perror("failed to register read epoll event for fd");
 
-        return errno;
+        return err;
     };
 
     fds_[fd] = events;
@@ -179,9 +183,10 @@ int Poller::register_fd_write(int fd) {
 
     const int ret = epoll_ctl(poller_fd_, op, fd, &ev);
     if (ret == -1) {
+        const int err = errno;
         perror("failed to register write epoll event for fd");
 
-        return errno;
+        return err;
     };
 
     fds_[fd] = events;
@@ -192,8 +197,10 @@ int Poller::register_fd_write(int fd) {
 int Poller::register_user_event() {
     const int fd = eventfd(0, EFD_NONBLOCK);
     if (fd < 0) {
+        const int err = errno;
         perror("failed to create eventfd");
-        return errno;
+
+        return err;
     }
 
     struct epoll_event ev{};
@@ -202,8 +209,10 @@ int Poller::register_user_event() {
 
     const int ret = epoll_ctl(poller_fd_, EPOLL_CTL_ADD, fd, &ev);
     if (ret != 0) {
+        const int err = errno;
         perror("failed to register epoll user event");
-        return errno;
+
+        return err;
     }
 
     const bool inserted = eventfds_.emplace(fd).second;
@@ -216,8 +225,10 @@ int Poller::register_timer(uint64_t timeout, bool periodic) {
     // NOLINTNEXTLINE(misc-include-cleaner) -- https://github.com/llvm/llvm-project/issues/64336
     const int fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (fd == -1) {
+        const int err = errno;
         perror("failed to create timerfd");
-        return errno;
+
+        return err;
     }
 
     // NOLINTNEXTLINE(misc-include-cleaner) -- https://github.com/llvm/llvm-project/issues/64336
@@ -229,9 +240,10 @@ int Poller::register_timer(uint64_t timeout, bool periodic) {
 
     const int ret = timerfd_settime(fd, 0, &ts, nullptr);
     if (ret == -1) {
+        const int err = errno;
         perror("failed to set time on timerfd");
 
-        return errno;
+        return err;
     }
 
     struct epoll_event ev{};
@@ -240,9 +252,10 @@ int Poller::register_timer(uint64_t timeout, bool periodic) {
 
     const int epoll_ret = epoll_ctl(poller_fd_, EPOLL_CTL_ADD, fd, &ev);
     if (epoll_ret != 0) {
+        const int err = errno;
         perror("failed to register timer event with epoll");
 
-        return errno;
+        return err;
     }
 
     const bool inserted = timerfds_.emplace(fd).second;
@@ -254,22 +267,25 @@ int Poller::register_timer(uint64_t timeout, bool periodic) {
 int Poller::register_signal(int signo) {
     sigset_t signals;
     if (sigemptyset(&signals) == -1) {
+        const int err = errno;
         perror("could not create empty signal set");
 
-        return errno;
+        return err;
     }
 
     if (sigaddset(&signals, signo) == -1) {
+        const int err = errno;
         perror("could not add signal to signal set");
 
-        return errno;
+        return err;
     }
 
     const int fd = signalfd(-1, &signals, SFD_NONBLOCK);
     if (fd < 0) {
+        const int err = errno;
         perror("failed to create signalfd");
 
-        return errno;
+        return err;
     }
 
     struct epoll_event ev{};
@@ -278,8 +294,10 @@ int Poller::register_signal(int signo) {
 
     const int ret = epoll_ctl(poller_fd_, EPOLL_CTL_ADD, fd, &ev);
     if (ret != 0) {
+        const int err = errno;
         perror("failed to register signal event with epoll");
-        return errno;
+
+        return err;
     }
 
     const int ret_signal = signal_block(signo);
@@ -301,7 +319,10 @@ int Poller::notify_user(int fd) {
     uint64_t unused = 1;
     const ssize_t ret = write(fd, &unused, sizeof(unused));
     if (ret == -1) {
-        return errno;
+        const int err = errno;
+        perror("could not write to eventfd for user notification");
+
+        return err;
     }
 
     return 0;
@@ -322,9 +343,10 @@ int Poller::remove_fd_read(int fd) {
 
     const int ret = epoll_ctl(poller_fd_, op, fd, &ev);
     if (ret == -1) {
+        const int err = errno;
         perror("failed to fd read event from epoll");
 
-        return errno;
+        return err;
     };
 
     if (events == 0) {
@@ -352,9 +374,10 @@ int Poller::remove_fd_write(int fd) {
 
     const int ret = epoll_ctl(poller_fd_, op, fd, &ev);
     if (ret == -1) {
+        const int err = errno;
         perror("failed to fd read event from epoll");
 
-        return errno;
+        return err;
     };
 
     if (events == 0) {
@@ -373,9 +396,10 @@ int Poller::remove_user_event(int id) {
 
     const int ret = epoll_ctl(poller_fd_, EPOLL_CTL_DEL, id, nullptr);
     if (ret == -1) {
+        const int err = errno;
         perror("failed to remove user event from epoll");
 
-        return errno;
+        return err;
     };
 
     (void)close(id);
@@ -389,9 +413,10 @@ int Poller::remove_timer(int id) {
 
     const int ret = epoll_ctl(poller_fd_, EPOLL_CTL_DEL, id, nullptr);
     if (ret == -1) {
+        const int err = errno;
         perror("failed to remove timer event from epoll");
 
-        return errno;
+        return err;
     };
 
     (void)close(id);
@@ -411,9 +436,10 @@ int Poller::remove_signal(int id) {
 
     const int ret = epoll_ctl(poller_fd_, EPOLL_CTL_DEL, id, nullptr);
     if (ret == -1) {
+        const int err = errno;
         perror("failed to remove signal event from epoll");
 
-        return errno;
+        return err;
     };
 
     (void)close(id);
