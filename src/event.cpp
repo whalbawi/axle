@@ -26,35 +26,35 @@ EventLoop::EventLoop() : poller_(std::make_unique<Poller>()) {
 EventLoop::~EventLoop() = default;
 
 Status<None, int> EventLoop::register_fd_read(int fd, const FdEventIOCb& cb) {
-    int ret = poller_->register_fd_read(fd);
+    const int ret = poller_->register_fd_read(fd);
     if (ret != 0) {
-        return Status<None, int>::make_err(ret);
+        return Err(ret);
     }
 
     fd_read_[fd] = cb;
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 Status<None, int> EventLoop::register_fd_write(int fd, const FdEventIOCb& cb) {
-    int ret = poller_->register_fd_write(fd);
+    const int ret = poller_->register_fd_write(fd);
     if (ret != 0) {
-        return Status<None, int>::make_err(ret);
+        return Err(ret);
     }
 
     fd_write_[fd] = cb;
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 Status<None, None> EventLoop::register_fd_eof(int fd, const FdEventEOFCb& cb) {
     if (!fd_read_.contains(fd) && !fd_write_.contains(fd)) {
-        return Status<None, None>::make_err();
+        return Err();
     }
 
     fd_eof_[fd] = cb;
 
-    return Status<None, None>::make_ok();
+    return Ok();
 }
 
 Status<int, int> EventLoop::register_timer(uint64_t timeout,
@@ -62,83 +62,83 @@ Status<int, int> EventLoop::register_timer(uint64_t timeout,
                                            const TimerEventCb& cb) {
     int fd = poller_->register_timer(timeout, periodic);
     if (fd == -1) {
-        return Status<int, int>::make_err(fd);
+        return Err(fd);
     }
 
     timers_[fd] = cb;
 
-    return Status<int, int>::make_ok(fd);
+    return Ok(fd);
 }
 
 Status<int, int> EventLoop::register_signal(int signo, const SignalEventCb& cb) {
     int fd = poller_->register_signal(signo);
     if (fd == -1) {
-        return Status<int, int>::make_err(fd);
+        return Err(fd);
     }
 
     signals_[fd] = cb;
 
-    return Status<int, int>::make_ok(fd);
+    return Ok(fd);
 }
 
 Status<None, int> EventLoop::remove_fd_read(int fd) {
     if (fd_read_.erase(fd) != 1) {
-        return Status<None, int>::make_err(0);
+        return Err(0);
     }
 
-    int ret = poller_->remove_fd_read(fd);
+    const int ret = poller_->remove_fd_read(fd);
     if (ret != 0) {
-        return Status<None, int>::make_err(ret);
+        return Err(ret);
     }
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 Status<None, int> EventLoop::remove_fd_write(int fd) {
     if (fd_write_.erase(fd) != 1) {
-        return Status<None, int>::make_err(0);
+        return Err(0);
     }
 
-    int ret = poller_->remove_fd_write(fd);
+    const int ret = poller_->remove_fd_write(fd);
     if (ret != 0) {
-        return Status<None, int>::make_err(ret);
+        return Err(ret);
     }
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 Status<None, None> EventLoop::remove_fd_eof(int fd) {
     if (fd_eof_.erase(fd) != 1) {
-        return Status<None, None>::make_err();
+        return Err();
     }
 
-    return Status<None, None>::make_ok();
+    return Ok();
 }
 
 Status<None, int> EventLoop::remove_timer(int id) {
     if (timers_.erase(id) != 1) {
-        return Status<None, int>::make_err(0);
+        return Err(0);
     }
 
-    int ret = poller_->remove_timer(id);
+    const int ret = poller_->remove_timer(id);
     if (ret != 0) {
-        return Status<None, int>::make_err(ret);
+        return Err(ret);
     }
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 Status<None, int> EventLoop::remove_signal(int fd) {
-    int ret = poller_->remove_signal(fd);
+    const int ret = poller_->remove_signal(fd);
     if (ret != 0) {
-        return Status<None, int>::make_err(ret);
+        return Err(ret);
     }
 
     if (signals_.erase(fd) != 1) {
-        return Status<None, int>::make_err(0);
+        return Err(0);
     }
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 void EventLoop::tick() {
@@ -182,14 +182,14 @@ void EventLoop::run() {
 }
 
 Status<None, int> EventLoop::shutdown() const {
-    int ret = poller_->notify_user(shutdown_event_id_);
+    const int ret = poller_->notify_user(shutdown_event_id_);
     if (ret != 0) {
         perror("failed to schedule shutdown event");
 
-        return Status<None, int>::make_err(ret);
+        return Err(ret);
     }
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 void EventLoop::handle_fd_read(const PollOutcome& outcome) {
@@ -198,9 +198,9 @@ void EventLoop::handle_fd_read(const PollOutcome& outcome) {
     }
     const FdEventIOCb& cb = fd_read_[outcome.id];
     if (outcome.state == PollState::ERR) {
-        cb(Status<int64_t, uint32_t>::make_err(0));
+        cb(Err(0));
     } else {
-        cb(Status<int64_t, uint32_t>::make_ok(0));
+        cb(Ok(0));
     }
 }
 
@@ -211,9 +211,9 @@ void EventLoop::handle_fd_write(const PollOutcome& outcome) {
 
     const FdEventIOCb& cb = fd_write_[outcome.id];
     if (outcome.state == PollState::ERR) {
-        cb(Status<int64_t, uint32_t>::make_err(0));
+        cb(Err(0));
     } else {
-        cb(Status<int64_t, uint32_t>::make_ok(0));
+        cb(Ok(0));
     }
 }
 
@@ -233,9 +233,9 @@ void EventLoop::handle_timer(const PollOutcome& outcome) {
 
     const TimerEventCb cb = timers_[outcome.id];
     if (outcome.state == PollState::ERR) {
-        cb(Status<None, uint32_t>::make_err(0));
+        cb(Err(0));
     } else {
-        cb(Status<None, uint32_t>::make_ok());
+        cb(Ok());
     }
 }
 
@@ -246,9 +246,9 @@ void EventLoop::handle_signal(const PollOutcome& outcome) {
 
     const SignalEventCb& cb = signals_[outcome.id];
     if (outcome.state == PollState::ERR) {
-        cb(Status<int64_t, uint32_t>::make_err(0));
+        cb(Err(0));
     } else {
-        cb(Status<int64_t, uint32_t>::make_ok(0));
+        cb(Ok(0));
     }
 }
 

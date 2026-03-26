@@ -42,13 +42,13 @@ Status<None, int> Socket::send_all(std::span<const uint8_t> buf) const {
     while (!buf.empty()) {
         Status<std::span<const uint8_t>, int> send_status = socket::send(fd_, buf);
         if (send_status.is_err()) {
-            return Status<None, int>::make_err(send_status.err());
+            return Err(send_status.err());
         }
 
         buf = send_status.ok();
     }
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 Status<std::span<uint8_t>, int> Socket::recv_some(std::span<uint8_t> buf) const {
@@ -63,7 +63,7 @@ Status<None, int> Socket::close() {
 
     fd_ = -1;
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 int Socket::get_fd() const {
@@ -87,10 +87,10 @@ Status<None, int> ServerSocket::listen(int port, int backlog) const {
 Status<Socket, int> ServerSocket::accept() const {
     Status<int, int> accept_status = socket::accept(get_fd());
     if (accept_status.is_err()) {
-        return Status<Socket, int>::make_err(accept_status.err());
+        return Err(accept_status.err());
     }
 
-    return Status<Socket, int>::make_ok(Socket(accept_status.ok()));
+    return Ok(Socket(accept_status.ok()));
 }
 
 } // namespace axle

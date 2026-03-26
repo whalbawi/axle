@@ -52,7 +52,7 @@ Status<None, int> AsyncSocket::send_all(std::span<const uint8_t> buf_view) const
             continue;
         }
 
-        int err = send_status.err();
+        const int err = send_status.err();
         switch (err) {
         case EWOULDBLOCK: {
             Status<None, int> ev_status = event_loop_->register_fd_write(
@@ -61,21 +61,21 @@ Status<None, int> AsyncSocket::send_all(std::span<const uint8_t> buf_view) const
                     Scheduler::resume(fiber);
                 });
             if (ev_status.is_err()) {
-                return Status<None, int>::make_err(ev_status.err());
+                return Err(ev_status.err());
             }
             Scheduler::yield();
             if (Scheduler::current_fiber()->interrupted()) {
                 (void)event_loop_->remove_fd_write(get_fd());
-                return Status<None, int>::make_err(EINTR);
+                return Err(EINTR);
             }
             continue;
         }
         default:
-            return Status<None, int>::make_err(err);
+            return Err(err);
         }
     }
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 Status<std::span<uint8_t>, int> AsyncSocket::recv_some(std::span<uint8_t> buf_view) const {
@@ -85,7 +85,7 @@ Status<std::span<uint8_t>, int> AsyncSocket::recv_some(std::span<uint8_t> buf_vi
             return recv_status;
         }
 
-        int err = recv_status.err();
+        const int err = recv_status.err();
         switch (err) {
         case EWOULDBLOCK: {
             Status<None, int> ev_status = event_loop_->register_fd_read(
@@ -94,17 +94,17 @@ Status<std::span<uint8_t>, int> AsyncSocket::recv_some(std::span<uint8_t> buf_vi
                     Scheduler::resume(fiber);
                 });
             if (ev_status.is_err()) {
-                return Status<std::span<uint8_t>, int>::make_err(ev_status.err());
+                return Err(ev_status.err());
             }
             Scheduler::yield();
             if (Scheduler::current_fiber()->interrupted()) {
                 (void)event_loop_->remove_fd_read(get_fd());
-                return Status<std::span<uint8_t>, int>::make_err(EINTR);
+                return Err(EINTR);
             }
             continue;
         }
         default:
-            return Status<std::span<uint8_t>, int>::make_err(err);
+            return Err(err);
         }
     }
 }
@@ -122,7 +122,7 @@ Status<None, int> AsyncSocket::close() {
 
     fd_ = -1;
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 int AsyncSocket::get_fd() const {
@@ -143,10 +143,10 @@ Status<AsyncSocket, int> AsyncServerSocket::accept() const {
     for (;;) {
         Status<int, int> accept_status = socket::accept(get_fd());
         if (accept_status.is_ok()) {
-            return Status<AsyncSocket, int>::make_ok(AsyncSocket(accept_status.ok()));
+            return Ok(AsyncSocket(accept_status.ok()));
         }
 
-        int err = accept_status.err();
+        const int err = accept_status.err();
         switch (err) {
         case EWOULDBLOCK: {
             Status<None, int> ev_status = event_loop_->register_fd_read(
@@ -155,17 +155,17 @@ Status<AsyncSocket, int> AsyncServerSocket::accept() const {
                     Scheduler::resume(fiber);
                 });
             if (ev_status.is_err()) {
-                return Status<AsyncSocket, int>::make_err(ev_status.err());
+                return Err(ev_status.err());
             }
             Scheduler::yield();
             if (Scheduler::current_fiber()->interrupted()) {
                 (void)event_loop_->remove_fd_read(get_fd());
-                return Status<AsyncSocket, int>::make_err(EINTR);
+                return Err(EINTR);
             }
             continue;
         }
         default:
-            return Status<AsyncSocket, int>::make_err(err);
+            return Err(err);
         }
     }
 }
