@@ -7,6 +7,12 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include <cerrno>
+
+#include <span>
+
+#include "axle/status.h"
+
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #define AXLE_USE_SO_NOSIGPIPE
@@ -30,10 +36,10 @@ static struct sockaddr* endpoint_to_sockaddr(const std::string& address,
 static axle::Status<axle::None, int> do_setsockopt(const int fd, int opt) {
     int enable = 1;
     if (setsockopt(fd, SOL_SOCKET, opt, &enable, sizeof(enable)) == -1) {
-        return axle::Status<axle::None, int>::make_err(errno);
+        return axle::Err(errno);
     }
 
-    return axle::Status<axle::None, int>::make_ok();
+    return axle::Ok();
 }
 
 namespace axle::socket {
@@ -45,15 +51,15 @@ inline int create_tcp() {
 inline Status<None, int> set_non_blocking(const int fd) {
     const int flags = do_fcntl(fd, F_GETFL, 0); // NOLINT(misc-include-cleaner) -- for F_GETFL
     if (flags == -1) {
-        return Status<None, int>::make_err(errno);
+        return Err(errno);
     }
 
     // NOLINTNEXTLINE(misc-include-cleaner) -- for F_SETFL, O_NONBLOCK
     if (do_fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        return Status<None, int>::make_err(errno);
+        return Err(errno);
     }
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 inline Status<None, int> set_opt_nosigpipe(const int fd) {
@@ -61,7 +67,7 @@ inline Status<None, int> set_opt_nosigpipe(const int fd) {
     return do_setsockopt(fd, SO_NOSIGPIPE);
 #else
     (void)fd;
-    return Status<None, int>::make_ok();
+    return Ok();
 #endif // AXLE_USE_NOSIGPIPE
 }
 
@@ -74,42 +80,42 @@ inline Status<std::span<const uint8_t>, int> send(const int fd,
     // NOLINTNEXTLINE(misc-include-cleaner) -- for ssize_t
     const ssize_t len = ::send(fd, buf.data(), buf.size(), MSG_NOSIGNAL);
     if (len == -1) {
-        return Status<std::span<const uint8_t>, int>::make_err(errno);
+        return Err(errno);
     }
 
-    return Status<std::span<const uint8_t>, int>::make_ok(buf.subspan(len));
+    return Ok(buf.subspan(len));
 }
 
 inline Status<std::span<uint8_t>, int> recv(const int fd, const std::span<uint8_t> buf) {
     const ssize_t len = read(fd, buf.data(), buf.size());
     if (len == -1) {
-        return Status<std::span<uint8_t>, int>::make_err(errno);
+        return Err(errno);
     }
 
-    return Status<std::span<uint8_t>, int>::make_ok(buf.first(len));
+    return Ok(buf.first(len));
 }
 
 inline Status<None, int> listen(const int fd, const int port, const int backlog) {
     struct sockaddr_in addr_in{};
     struct sockaddr* addr = endpoint_to_sockaddr("0.0.0.0", port, addr_in);
     if (bind(fd, addr, sizeof(*addr)) == -1) {
-        return Status<None, int>::make_err(errno);
+        return Err(errno);
     }
 
     if (::listen(fd, backlog) < 0) {
-        return Status<None, int>::make_err(errno);
+        return Err(errno);
     }
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 inline Status<int, int> accept(const int fd) {
     const int peer_fd = ::accept(fd, nullptr, nullptr);
     if (peer_fd == -1) {
-        return Status<int, int>::make_err(errno);
+        return Err(errno);
     }
 
-    return Status<int, int>::make_ok(peer_fd);
+    return Ok(peer_fd);
 }
 
 inline Status<None, int> connect(const int fd, const std::string& address, const int port) {
@@ -117,18 +123,18 @@ inline Status<None, int> connect(const int fd, const std::string& address, const
     struct sockaddr* addr = endpoint_to_sockaddr(address, port, addr_in);
 
     if (::connect(fd, addr, sizeof(*addr)) == -1) {
-        return Status<None, int>::make_err(errno);
+        return Err(errno);
     }
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 inline Status<None, int> close(const int fd) {
     if (fd != -1 && ::close(fd) == -1) {
-        return Status<None, int>::make_err(errno);
+        return Err(errno);
     }
 
-    return Status<None, int>::make_ok();
+    return Ok();
 }
 
 } // namespace axle::socket

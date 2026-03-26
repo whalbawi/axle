@@ -12,7 +12,7 @@
 namespace axle {
 
 TEST(StatusTest, Ok) {
-    Status status = Status<int, int>::make_ok(-2);
+    Status status = Ok(-2);
 
     ASSERT_TRUE(status.is_ok());
     ASSERT_EQ(-2, status.ok());
@@ -20,7 +20,7 @@ TEST(StatusTest, Ok) {
 }
 
 TEST(StatusTest, Error) {
-    Status status = Status<int, std::string>::make_err("error message");
+    Status status = Err("error message");
 
     ASSERT_TRUE(status.is_err());
     ASSERT_EQ(std::string("error message"), status.err());
@@ -43,7 +43,7 @@ TEST(StatusTest, ComplexOk) {
     const std::vector<char> payload = {'a', 'c', 'b'};
     const int result_expected = 23;
     ComplexResult<int> res{std::make_unique<int>(result_expected), payload};
-    Status status = Status<ComplexResult<int>, ErrorCode>::make_ok(std::move(res));
+    Status status = Ok(std::move(res));
 
     ASSERT_TRUE(status.is_ok());
     ASSERT_FALSE(status.is_err());
@@ -56,7 +56,7 @@ TEST(StatusTest, ComplexOk) {
 TEST(StatusTest, ComplexError) {
     const std::vector<char> payload = {'a', 'c', 'b'};
     ComplexResult<ErrorCode> res{std::make_unique<ErrorCode>(ErrorCode::INVALID), payload};
-    Status status = Status<float, ComplexResult<ErrorCode>>::make_err(std::move(res));
+    Status status = Err(std::move(res));
 
     ASSERT_TRUE(status.is_err());
     ASSERT_FALSE(status.is_ok());
@@ -67,19 +67,44 @@ TEST(StatusTest, ComplexError) {
 }
 
 TEST(StatusTest, NoneOk) {
-    Status status = Status<None, int>::make_ok();
+    const Status status = Ok();
 
     ASSERT_TRUE(status.is_ok());
-    ASSERT_EQ(None{}, status.ok());
     ASSERT_FALSE(status.is_err());
 }
 
 TEST(StatusTest, NoneErr) {
-    Status status = Status<int>::make_err();
+    const Status status = Err();
 
     ASSERT_TRUE(status.is_err());
-    ASSERT_EQ(None{}, status.err());
     ASSERT_FALSE(status.is_ok());
+}
+
+TEST(StatusTest, OkConversion) {
+    const Status status = Ok();
+    ASSERT_TRUE(status.is_ok());
+}
+
+TEST(StatusTest, OkConversionComplex) {
+    const int num = 42;
+    std::unique_ptr<int> ptr = std::make_unique<int>(num);
+    Status status = Ok(std::move(ptr));
+    ASSERT_TRUE(status.is_ok());
+    ASSERT_EQ(num, *status.ok().get());
+}
+
+TEST(StatusTest, ErrConversion) {
+    const Status status = Err();
+    ASSERT_TRUE(status.is_err());
+}
+
+TEST(StatusTest, ErrConversionComplex) {
+    const int num = 42;
+    std::unique_ptr<int> ptr = std::make_unique<int>(num);
+
+    Status status = Err(std::move(ptr));
+    ASSERT_TRUE(status.is_err());
+    ASSERT_EQ(num, *status.err().get());
 }
 
 } // namespace axle
