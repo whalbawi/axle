@@ -28,9 +28,9 @@ IncludeCategories:
     Priority:        1
     SortPriority:    1
   - Regex:           '^<[a-z]+/.*\.h>'                 # <sys/event.h>
-    SortPriority:    2
     Priority:        1
-  - Regex:           '^<c(assert,errno|signal|string|std).*>' # <cstring>
+    SortPriority:    2
+  - Regex:           '^<c(assert|errno|signal|string|std).*>' # <cstring>
     Priority:        2
     SortPriority:    3
   - Regex:           '^<.*/'                           # <a/other>
@@ -40,17 +40,20 @@ IncludeCategories:
     Priority:        3
     SortPriority:    4
   - Regex:           '^"gtest/.*"'                     # "gtest/gtest.h"
-    SortPriority:    8
     Priority:        5
-  - Regex:           '^"benchmark/.*"'                 # "gtest/gtest.h"
-    SortPriority:    9
+    SortPriority:    8
+  - Regex:           '^"test_.*"'                     # "test_common.h"
     Priority:        6
+    SortPriority:    9
+  - Regex:           '^"benchmark/.*"'                 # "benchmark/benchmark.h"
+    Priority:        7
+    SortPriority:   10
   - Regex:           '^".*/'                           # "b/project"
+    Priority:        4
     SortPriority:    7
-    Priority:        4
   - Regex:           '^".*"'                           # "project"
-    SortPriority:    6
     Priority:        4
+    SortPriority:    6
 
 ---
 Language: Json

@@ -107,6 +107,7 @@ endif ()
 
 # Test files
 set(AXLE_TEST_LIST
+    ${AXLE_TEST_DIR}/async_socket_test.cpp
     ${AXLE_TEST_DIR}/axle_test.cpp
     ${AXLE_TEST_DIR}/event_test.cpp
     ${AXLE_TEST_DIR}/fiber_test.cpp
@@ -132,7 +133,7 @@ endif()
 
 # Unit tests
 add_executable(axle_test ${AXLE_TEST_LIST})
-target_include_directories(axle_test PRIVATE ${AXLE_SRC_DIR})
+target_include_directories(axle_test PRIVATE ${AXLE_SRC_DIR} ${AXLE_TEST_DIR})
 target_link_libraries(axle_test axle gtest_main)
 
 add_test(unit-tests axle_test)
