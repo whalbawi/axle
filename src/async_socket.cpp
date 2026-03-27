@@ -5,6 +5,7 @@
 
 #include <span>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 #include "fiber.h" // IWYU pragma: keep
@@ -15,13 +16,17 @@
 
 namespace axle {
 
-AsyncSocket::AsyncSocket() : AsyncSocket(socket::create_tcp()) {}
+AsyncSocket::AsyncSocket()
+    : AsyncSocket([] {
+          Status fd_status = socket::create_tcp();
+          if (fd_status.is_err()) {
+              throw std::runtime_error{"could not create TCP socket"};
+          }
+
+          return fd_status.ok();
+      }()) {}
 
 AsyncSocket::AsyncSocket(int fd) : event_loop_(Scheduler::get_event_loop()), fd_(fd) {
-    if (fd_ == -1) {
-        throw std::runtime_error("invalid socket fd");
-    }
-
     if (socket::set_non_blocking(fd_).is_err()) {
         (void)close();
 
@@ -64,6 +69,7 @@ Status<None, int> AsyncSocket::send_all(std::span<const uint8_t> buf_view) const
                 return Err(ev_status.err());
             }
             Scheduler::yield();
+            (void)event_loop_->remove_fd_write(get_fd());
             if (Scheduler::current_fiber()->interrupted()) {
                 (void)event_loop_->remove_fd_write(get_fd());
                 return Err(EINTR);
@@ -97,6 +103,7 @@ Status<std::span<uint8_t>, int> AsyncSocket::recv_some(std::span<uint8_t> buf_vi
                 return Err(ev_status.err());
             }
             Scheduler::yield();
+            (void)event_loop_->remove_fd_read(get_fd());
             if (Scheduler::current_fiber()->interrupted()) {
                 (void)event_loop_->remove_fd_read(get_fd());
                 return Err(EINTR);
@@ -127,6 +134,50 @@ Status<None, int> AsyncSocket::close() {
 
 int AsyncSocket::get_fd() const {
     return fd_;
+}
+
+Status<None, int> AsyncClientSocket::connect(const std::string& address, int port) const {
+    for (;;) {
+        Status<None, int> connect_status = socket::connect(get_fd(), address, port);
+        if (connect_status.is_ok()) {
+            return Ok();
+        }
+
+        const int err = connect_status.err();
+        switch (err) {
+        case EINPROGRESS: {
+            Status<None, int> ev_status = event_loop_->register_fd_write(
+                get_fd(), [fiber = Scheduler::current_fiber()](Status<int64_t, uint32_t> status) {
+                    (void)status;
+                    Scheduler::resume(fiber);
+                });
+            if (ev_status.is_err()) {
+                return Err(ev_status.err());
+            }
+
+            Scheduler::yield();
+            (void)event_loop_->remove_fd_write(get_fd());
+            if (Scheduler::current_fiber()->interrupted()) {
+                return Err(EINTR);
+            }
+
+            Status sockopt = socket::get_error(get_fd());
+            if (sockopt.is_err()) {
+                return Err(sockopt.err());
+            }
+
+            const int sockerr = sockopt.ok();
+            if (sockerr != 0) {
+                return Err(sockerr);
+            }
+
+            return Ok();
+        }
+
+        default:
+            return Err(err);
+        }
+    }
 }
 
 AsyncServerSocket::AsyncServerSocket() {

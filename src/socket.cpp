@@ -12,13 +12,17 @@
 
 namespace axle {
 
-Socket::Socket() : Socket(socket::create_tcp()) {}
+Socket::Socket()
+    : Socket([] {
+          Status fd_status = socket::create_tcp();
+          if (fd_status.is_err()) {
+              throw std::runtime_error{"could not create TCP socket"};
+          }
+
+          return fd_status.ok();
+      }()) {}
 
 Socket::Socket(int fd) : fd_(fd) {
-    if (fd_ == -1) {
-        throw std::runtime_error("invalid socket fd");
-    }
-
     if (socket::set_opt_nosigpipe(fd_).is_err()) {
         (void)close();
 
