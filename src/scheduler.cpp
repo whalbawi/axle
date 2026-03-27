@@ -192,6 +192,10 @@ void Scheduler::do_enter(std::function<void()> entry_point) {
 
 void Scheduler::do_shutdown() {
     log_dbg("SHUTDN");
+
+    // TODO (whalbawi, 270326): Figure out the correct order.
+    const Status status = event_loop_->shutdown();
+    AXLE_ASSERT(status.is_ok());
     state_ = State::SHUTDOWN;
 }
 

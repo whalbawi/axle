@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <cstdint>
 
-#include <cassert>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>

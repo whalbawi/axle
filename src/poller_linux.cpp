@@ -8,12 +8,12 @@
 #include <sys/timerfd.h>
 #include <sys/types.h>
 
-#include <cerrno>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
 
 #include <array>
+#include <cerrno>
 #include <span>
 #include <stdexcept>
 #include <vector>
@@ -90,7 +90,7 @@ Poller::~Poller() noexcept {
 std::vector<PollOutcome> Poller::poll() const {
     std::array<struct epoll_event, k_max_event_cnt> evs{};
 
-    const int ret = epoll_wait(poller_fd_, evs.data(), evs.size(), 0);
+    const int ret = epoll_wait(poller_fd_, evs.data(), evs.size(), -1);
     if (ret == -1) {
         perror("failed to wait for events");
         return {};

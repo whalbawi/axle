@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <concepts>
 #include <format>
 #include <memory>
@@ -68,13 +69,10 @@ void log_dbg(std::format_string<Args...> fmt, Args&&... args) {
 #endif
 }
 
-#if AXLE_DEBUG_ENABLED
 #define AXLE_ASSERT(cond)                                                                          \
     {                                                                                              \
+        (void)(cond);                                                                              \
         assert(cond);                                                                              \
     }
-#else
-#define AXLE_ASSERT(cond) (void)(cond);
-#endif // NDEBUG
 
 } // namespace axle

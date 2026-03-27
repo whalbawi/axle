@@ -55,9 +55,8 @@ Poller::~Poller() noexcept {
 
 std::vector<PollOutcome> Poller::poll() const {
     std::array<struct kevent, k_max_event_cnt> evs{};
-    const struct timespec ts{.tv_sec = 0, .tv_nsec = 0};
 
-    const int ret = kevent(poller_fd_, nullptr, 0, evs.data(), evs.size(), &ts);
+    const int ret = kevent(poller_fd_, nullptr, 0, evs.data(), evs.size(), nullptr);
     if (ret == -1) {
         perror("failed to wait for events");
         return {};
