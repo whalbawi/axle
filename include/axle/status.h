@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include <concepts>
+#include <string>
 #include <utility>
 #include <variant>
 
@@ -52,6 +53,12 @@ class Status {
 
     E err()
         requires(!std::same_as<E, None>);
+
+    std::string err()
+        requires(std::same_as<E, None>);
+
+    std::string ok()
+        requires(std::same_as<T, None>);
 
   private:
     Status() = delete;
@@ -103,6 +110,21 @@ E Status<T, E>::err()
     requires(!std::same_as<E, None>)
 {
     return std::move(std::get<1>(state_));
+}
+
+template <typename T, typename E>
+std::string Status<T, E>::ok()
+    requires(std::same_as<T, None>)
+{
+
+    return "(nil)";
+}
+
+template <typename T, typename E>
+std::string Status<T, E>::err()
+    requires(std::same_as<E, None>)
+{
+    return "(nil)";
 }
 
 } // namespace axle

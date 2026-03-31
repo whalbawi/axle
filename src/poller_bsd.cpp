@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "common.h"
 #include "poller_common.h"
 
 namespace axle {
@@ -69,24 +70,24 @@ std::vector<PollOutcome> Poller::poll() const {
         const struct kevent& ev = evs.at(i);
         switch (ev.filter) {
         case EVFILT_USER: {
-            (void)outcomes.emplace_back(ev.ident, PollEvent::USER, PollState::OK);
+            AXLE_UNUSED(outcomes.emplace_back(ev.ident, PollEvent::USER, PollState::OK));
             break;
         }
 
         case EVFILT_READ: {
             const PollState state = (ev.flags & EV_ERROR) != 0 ? PollState::ERR : PollState::OK;
-            (void)outcomes.emplace_back(ev.ident, PollEvent::FD_READ, state);
+            AXLE_UNUSED(outcomes.emplace_back(ev.ident, PollEvent::FD_READ, state));
             if ((ev.flags & EV_EOF) != 0) {
-                (void)outcomes.emplace_back(ev.ident, PollEvent::FD_EOF, state);
+                AXLE_UNUSED(outcomes.emplace_back(ev.ident, PollEvent::FD_EOF, state));
             }
             break;
         }
 
         case EVFILT_WRITE: {
             const PollState state = (ev.flags & EV_ERROR) != 0 ? PollState::ERR : PollState::OK;
-            (void)outcomes.emplace_back(ev.ident, PollEvent::FD_WRITE, state);
+            AXLE_UNUSED(outcomes.emplace_back(ev.ident, PollEvent::FD_WRITE, state));
             if ((ev.flags & EV_EOF) != 0) {
-                (void)outcomes.emplace_back(ev.ident, PollEvent::FD_EOF, state);
+                AXLE_UNUSED(outcomes.emplace_back(ev.ident, PollEvent::FD_EOF, state));
             }
             break;
         }
@@ -94,13 +95,13 @@ std::vector<PollOutcome> Poller::poll() const {
         case EVFILT_TIMER: {
             // TODO (whalbawi): Confirm what happens when a timer fails and how errors are reported.
             const PollState state = (ev.flags & EV_ERROR) != 0 ? PollState::ERR : PollState::OK;
-            (void)outcomes.emplace_back(ev.ident, PollEvent::TIMER, state);
+            AXLE_UNUSED(outcomes.emplace_back(ev.ident, PollEvent::TIMER, state));
             break;
         }
 
         case EVFILT_SIGNAL: {
             const PollState state = (ev.flags & EV_ERROR) != 0 ? PollState::ERR : PollState::OK;
-            (void)outcomes.emplace_back(ev.ident, PollEvent::SIGNAL, state);
+            AXLE_UNUSED(outcomes.emplace_back(ev.ident, PollEvent::SIGNAL, state));
             break;
         }
 

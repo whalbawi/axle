@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "common.h"
 #include "debug.h"
 #include "fiber.h"
 #include "axle/event.h"
@@ -41,7 +42,7 @@ void Scheduler::init() {
         const std::lock_guard<std::mutex> lk{k_schedulers_mtx};
         std::unique_ptr<Scheduler> scheduler(
             new Scheduler(std::make_shared<EventLoop>(), host_thread));
-        (void)k_schedulers.emplace(host_thread, std::move(scheduler));
+        AXLE_UNUSED(k_schedulers.emplace(host_thread, std::move(scheduler)));
         k_instance = k_schedulers.at(host_thread).get();
     }
 }
@@ -55,7 +56,7 @@ void Scheduler::fini() {
     {
         const std::lock_guard<std::mutex> lk{k_schedulers_mtx};
         k_instance->do_fini();
-        (void)k_schedulers.erase(k_instance->host_thread_);
+        AXLE_UNUSED(k_schedulers.erase(k_instance->host_thread_));
         k_instance = nullptr;
     }
 }
@@ -94,7 +95,7 @@ void Scheduler::yield() {
 
 void Scheduler::resume(std::shared_ptr<Fiber> fiber) {
     Scheduler::ensure_inited();
-    (void)k_instance->blocked_fibers_.erase(fiber);
+    AXLE_UNUSED(k_instance->blocked_fibers_.erase(fiber));
     k_instance->enqueue(std::move(fiber));
 }
 
@@ -135,7 +136,7 @@ void Scheduler::do_yield() {
         throw std::runtime_error("scheduler is not running");
     }
     log_dbg("YIELD  {}", Scheduler::current_fiber());
-    (void)blocked_fibers_.insert(current_fiber_);
+    AXLE_UNUSED(blocked_fibers_.insert(current_fiber_));
     switch_to(main_fiber_);
 }
 
@@ -172,7 +173,7 @@ void Scheduler::do_enter(std::function<void()> entry_point) {
         },
         "entry_point");
     Status<int, int> reg_status = event_loop_->register_signal(SIGINT, [&](auto status) {
-        (void)status;
+        AXLE_UNUSED(status);
         do_shutdown();
     });
 
@@ -186,7 +187,7 @@ void Scheduler::do_enter(std::function<void()> entry_point) {
     // remove the signal handler.
     Status<None, int> rem_status = event_loop_->remove_signal(shutdown_handler_id);
     if (rem_status.is_err()) {
-        (void)rem_status.err();
+        AXLE_UNUSED(rem_status.err());
     }
 }
 

@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "common.h"
 #include "socket_common.h"
 #include "axle/status.h"
 
@@ -24,7 +25,7 @@ Socket::Socket()
 
 Socket::Socket(int fd) : fd_(fd) {
     if (socket::set_opt_nosigpipe(fd_).is_err()) {
-        (void)close();
+        AXLE_UNUSED(close());
 
         throw std::runtime_error("could not set SO_NOSIGPIPE for socket");
     }
@@ -35,7 +36,7 @@ Socket::Socket(Socket&& other) noexcept : fd_(other.fd_) {
 }
 
 Socket::~Socket() {
-    (void)close();
+    AXLE_UNUSED(close());
 }
 
 Status<None, int> Socket::set_non_blocking() const {

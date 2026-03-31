@@ -1,5 +1,8 @@
+#include <memory>
+#include <span>
+
 #include "axle/event.h"
-#include "axle/socket.h"
+#include "axle/gate.h"
 
 namespace axle {
 
@@ -7,9 +10,9 @@ class AsyncSocket {
   public:
     AsyncSocket();
     explicit AsyncSocket(int fd);
-    AsyncSocket(AsyncSocket&& other) noexcept;
     virtual ~AsyncSocket();
 
+    AsyncSocket(AsyncSocket&& other) noexcept;
     AsyncSocket(const AsyncSocket&) = delete;
     AsyncSocket& operator=(const AsyncSocket&) = delete;
     AsyncSocket& operator=(AsyncSocket&&) = delete;
@@ -22,6 +25,7 @@ class AsyncSocket {
 
   protected:
     std::shared_ptr<EventLoop> event_loop_; // NOLINT(misc-non-private-member-variables-in-classes)
+    Gate gate_;                             // NOLINT(misc-non-private-member-variables-in-classes)
 
   private:
     int fd_;

@@ -3,14 +3,18 @@
 #include <cerrno>
 #include <cstdint>
 
+#include <memory>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <utility>
 
+#include "common.h"
+#include "debug.h"
 #include "fiber.h" // IWYU pragma: keep
 #include "socket_common.h"
 #include "axle/event.h"
+#include "axle/gate.h"
 #include "axle/scheduler.h"
 #include "axle/status.h"
 
@@ -28,25 +32,39 @@ AsyncSocket::AsyncSocket()
 
 AsyncSocket::AsyncSocket(int fd) : event_loop_(Scheduler::get_event_loop()), fd_(fd) {
     if (socket::set_non_blocking(fd_).is_err()) {
-        (void)close();
+        const Status close_st = close();
+        AXLE_ASSERT(close_st.is_ok());
 
         throw std::runtime_error("failed to put socket in non-blocking mode");
     }
 
     if (socket::set_opt_nosigpipe(fd_).is_err()) {
-        (void)close();
+        const Status close_st = close();
+        AXLE_ASSERT(close_st.is_ok());
 
         throw std::runtime_error("could not set SO_NOSIGPIPE for socket");
+    }
+
+    const Status<None, int> ev_status =
+        event_loop_->register_fd_read(get_fd(), [gate = gate_](Status<int64_t, uint32_t> status) {
+            // TODO(whalbawi, 310326): Handle properly
+            AXLE_UNUSED(status);
+            gate.post();
+        });
+
+    if (ev_status.is_err()) {
+        throw std::runtime_error("could not register fd with event loop for read readiness");
     }
 }
 
 AsyncSocket::AsyncSocket(AsyncSocket&& other) noexcept
-    : event_loop_(std::move(other.event_loop_)), fd_(other.fd_) {
+    : event_loop_(std::move(other.event_loop_)), gate_(std::move(other.gate_)), fd_(other.fd_) {
     other.fd_ = -1;
 }
 
 AsyncSocket::~AsyncSocket() {
-    (void)close();
+    const Status close_st = close();
+    AXLE_ASSERT(close_st.is_ok());
 }
 
 Status<None, int> AsyncSocket::send_all(std::span<const uint8_t> buf_view) const {
@@ -60,18 +78,19 @@ Status<None, int> AsyncSocket::send_all(std::span<const uint8_t> buf_view) const
         const int err = send_status.err();
         switch (err) {
         case EWOULDBLOCK: {
-            Status<None, int> ev_status = event_loop_->register_fd_write(
-                get_fd(), [fiber = Scheduler::current_fiber()](Status<int64_t, uint32_t> status) {
-                    (void)status;
-                    Scheduler::resume(fiber);
+            Gate gate{};
+            Status<None, int> ev_status =
+                event_loop_->register_fd_write(get_fd(), [&gate](Status<int64_t, uint32_t> status) {
+                    AXLE_ASSERT(status.is_ok());
+                    gate.post();
                 });
             if (ev_status.is_err()) {
                 return Err(ev_status.err());
             }
-            Scheduler::yield();
-            (void)event_loop_->remove_fd_write(get_fd());
-            if (Scheduler::current_fiber()->interrupted()) {
-                (void)event_loop_->remove_fd_write(get_fd());
+            const Status wait_st = gate.wait();
+            const Status remove_st = event_loop_->remove_fd_write(get_fd());
+            AXLE_ASSERT(remove_st.is_ok());
+            if (wait_st.is_err()) {
                 return Err(EINTR);
             }
             continue;
@@ -94,18 +113,10 @@ Status<std::span<uint8_t>, int> AsyncSocket::recv_some(std::span<uint8_t> buf_vi
         const int err = recv_status.err();
         switch (err) {
         case EWOULDBLOCK: {
-            Status<None, int> ev_status = event_loop_->register_fd_read(
-                get_fd(), [fiber = Scheduler::current_fiber()](Status<int64_t, uint32_t> status) {
-                    (void)status;
-                    Scheduler::resume(fiber);
-                });
-            if (ev_status.is_err()) {
-                return Err(ev_status.err());
-            }
-            Scheduler::yield();
-            (void)event_loop_->remove_fd_read(get_fd());
-            if (Scheduler::current_fiber()->interrupted()) {
-                (void)event_loop_->remove_fd_read(get_fd());
+            const Status wait_st = gate_.wait();
+            if (wait_st.is_err()) {
+                const Status rem = event_loop_->remove_fd_read(get_fd());
+                AXLE_ASSERT(rem.is_ok());
                 return Err(EINTR);
             }
             continue;
@@ -118,8 +129,10 @@ Status<std::span<uint8_t>, int> AsyncSocket::recv_some(std::span<uint8_t> buf_vi
 
 Status<None, int> AsyncSocket::close() {
     if (event_loop_) {
-        (void)event_loop_->remove_fd_write(get_fd());
-        (void)event_loop_->remove_fd_read(get_fd());
+        const Status rem_write_st = event_loop_->remove_fd_write(get_fd());
+        AXLE_UNUSED(rem_write_st.is_ok());
+        const Status rem_read_st = event_loop_->remove_fd_read(get_fd());
+        AXLE_UNUSED(rem_read_st.is_ok());
     }
 
     Status<None, int> close_status = socket::close(fd_);
@@ -146,18 +159,20 @@ Status<None, int> AsyncClientSocket::connect(const std::string& address, int por
         const int err = connect_status.err();
         switch (err) {
         case EINPROGRESS: {
-            Status<None, int> ev_status = event_loop_->register_fd_write(
-                get_fd(), [fiber = Scheduler::current_fiber()](Status<int64_t, uint32_t> status) {
-                    (void)status;
-                    Scheduler::resume(fiber);
+            const Gate gate{};
+            Status<None, int> ev_status =
+                event_loop_->register_fd_write(get_fd(), [gate](Status<int64_t, uint32_t> status) {
+                    AXLE_UNUSED(status.is_ok());
+                    gate.post();
                 });
             if (ev_status.is_err()) {
                 return Err(ev_status.err());
             }
 
-            Scheduler::yield();
-            (void)event_loop_->remove_fd_write(get_fd());
-            if (Scheduler::current_fiber()->interrupted()) {
+            const Status wait_st = gate.wait();
+            const Status rem_st = event_loop_->remove_fd_write(get_fd());
+            AXLE_ASSERT(rem_st.is_ok());
+            if (wait_st.is_err()) {
                 return Err(EINTR);
             }
 
@@ -200,17 +215,10 @@ Status<AsyncSocket, int> AsyncServerSocket::accept() const {
         const int err = accept_status.err();
         switch (err) {
         case EWOULDBLOCK: {
-            Status<None, int> ev_status = event_loop_->register_fd_read(
-                get_fd(), [fiber = Scheduler::current_fiber()](Status<int64_t, uint32_t> status) {
-                    (void)status;
-                    Scheduler::resume(fiber);
-                });
-            if (ev_status.is_err()) {
-                return Err(ev_status.err());
-            }
-            Scheduler::yield();
-            if (Scheduler::current_fiber()->interrupted()) {
-                (void)event_loop_->remove_fd_read(get_fd());
+            const Status wait_st = gate_.wait();
+            if (wait_st.is_err()) {
+                const Status rem_st = event_loop_->remove_fd_read(get_fd());
+                AXLE_ASSERT(rem_st.is_ok());
                 return Err(EINTR);
             }
             continue;

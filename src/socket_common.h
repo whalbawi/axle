@@ -13,6 +13,7 @@
 #include <span>
 #include <string>
 
+#include "common.h"
 #include "axle/status.h"
 
 #ifndef MSG_NOSIGNAL
@@ -120,7 +121,7 @@ inline Status<None, int> set_opt_nosigpipe(const int fd) {
 #ifdef AXLE_USE_NOSIGPIPE
     return detail::do_setsockopt(fd, SO_NOSIGPIPE);
 #else
-    (void)fd;
+    AXLE_UNUSED(fd);
     return Ok();
 #endif // AXLE_USE_NOSIGPIPE
 }
@@ -146,7 +147,7 @@ inline Status<std::span<uint8_t>, int> recv(const int fd, const std::span<uint8_
     const ssize_t len = ::read(fd, buf.data(), buf.size());
     if (len == -1) {
         const int err = errno;
-        perror("read");
+        // perror("read");
 
         return Err(err);
     }
@@ -178,7 +179,7 @@ inline Status<int, int> accept(const int fd) {
     const int peer_fd = ::accept(fd, nullptr, nullptr);
     if (peer_fd == -1) {
         const int err = errno;
-        perror("accept");
+        // perror("accept");
 
         return Err(err);
     }

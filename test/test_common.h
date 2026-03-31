@@ -22,7 +22,7 @@
         if (status__.is_ok()) {                                                                    \
             FAIL() << #status << " is not ERR";                                                    \
         }                                                                                          \
-        ASSERT_EQ((errval), status.err());                                                         \
+        ASSERT_EQ((errval), status__.err());                                                       \
     }
 
 template <typename C>

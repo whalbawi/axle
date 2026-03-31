@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "socket_common.h"
+#include "axle/gate.h"
 #include "axle/scheduler.h"
 #include "axle/socket.h"
 #include "axle/status.h"
@@ -581,15 +582,15 @@ TEST(AsyncSocketTest, NoStaleReadRegistration) {
 
         bool timer_fired = false;
         auto ev = Scheduler::get_event_loop();
-        Status timer = ev->register_timer(
-            timeout_ns, false, [&timer_fired, fiber = Scheduler::current_fiber()](auto) {
-                timer_fired = true;
-                Scheduler::resume(fiber);
-            });
+        const Gate gate{};
+        Status timer = ev->register_timer(timeout_ns, false, [&timer_fired, gate](auto) {
+            timer_fired = true;
+            gate.post();
+        });
         AXLE_TEST_ASSERT_OK(timer);
 
         server.signal_close();
-        Scheduler::yield();
+        AXLE_TEST_ASSERT_OK(gate.wait());
 
         // In case of a stale registration, the next line will be executed before the timer fires.
         ASSERT_TRUE(timer_fired);
@@ -639,15 +640,15 @@ TEST(AsyncSocketTest, NoStaleWriteRegistration) {
 
         bool timer_fired = false;
         auto ev = Scheduler::get_event_loop();
-        Status timer = ev->register_timer(
-            timeout_ns, false, [&timer_fired, fiber = Scheduler::current_fiber()](auto) {
-                timer_fired = true;
-                Scheduler::resume(fiber);
-            });
+        Gate gate{};
+        Status timer = ev->register_timer(timeout_ns, false, [&timer_fired, &gate](auto) {
+            timer_fired = true;
+            gate.post();
+        });
         AXLE_TEST_ASSERT_OK(timer);
 
         server.signal_close();
-        Scheduler::yield();
+        AXLE_TEST_ASSERT_OK(gate.wait());
 
         // In case of a stale registration, the next line will be executed before the timer fires.
         ASSERT_TRUE(timer_fired);

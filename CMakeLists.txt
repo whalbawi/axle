@@ -90,6 +90,7 @@ set(AXLE_SRC_LIST
     ${AXLE_SRC_DIR}/axle.cpp
     ${AXLE_SRC_DIR}/event.cpp
     ${AXLE_SRC_DIR}/fiber.cpp
+    ${AXLE_SRC_DIR}/gate.cpp
     ${AXLE_SRC_DIR}/scheduler.cpp
     ${AXLE_SRC_DIR}/socket.cpp
     ${AXLE_SRC_DIR}/fiber_arm64.cpp
@@ -111,6 +112,7 @@ set(AXLE_TEST_LIST
     ${AXLE_TEST_DIR}/axle_test.cpp
     ${AXLE_TEST_DIR}/event_test.cpp
     ${AXLE_TEST_DIR}/fiber_test.cpp
+    ${AXLE_TEST_DIR}/gate_test.cpp
     ${AXLE_TEST_DIR}/scheduler_test.cpp
     ${AXLE_TEST_DIR}/status_test.cpp
 )

@@ -18,6 +18,7 @@
 #include <thread>
 #include <utility>
 
+#include "common.h"
 #include "axle/socket.h"
 #include "axle/status.h"
 
@@ -248,7 +249,7 @@ class IncrementServer {
     explicit IncrementServer(int port) : port_(port), socket_{ServerSocket()}, running_{false} {}
 
     ~IncrementServer() {
-        (void)socket_.close();
+        AXLE_UNUSED(socket_.close());
     }
 
     void start() {
@@ -269,14 +270,14 @@ class IncrementServer {
                 std::span<uint8_t> buf_view{buf_};
                 Status<std::span<uint8_t>, int> recv_some_res = peer_socket.recv_some(buf_view);
                 if (recv_some_res.is_err()) {
-                    (void)peer_socket.close();
+                    AXLE_UNUSED(peer_socket.close());
                     break;
                 }
 
                 buf_view = recv_some_res.ok();
 
                 if (buf_view.empty()) {
-                    (void)peer_socket.close();
+                    AXLE_UNUSED(peer_socket.close());
                     break;
                 }
 
@@ -285,7 +286,7 @@ class IncrementServer {
                 }
 
                 if (peer_socket.send_all(buf_view).is_err()) {
-                    (void)peer_socket.close();
+                    AXLE_UNUSED(peer_socket.close());
                     break;
                 }
             }
@@ -346,7 +347,7 @@ class Request {
     }
 
     void end() {
-        (void)socket_.close();
+        AXLE_UNUSED(socket_.close());
     }
 
     State get_state() {

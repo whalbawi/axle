@@ -1,11 +1,13 @@
 #pragma once
 
 #include <cassert>
+
 #include <concepts>
 #include <format>
 #include <memory>
 #include <type_traits>
 
+#include "common.h"
 #include "fiber.h"
 
 #if !defined(AXLE_DEBUG_ENABLED)
@@ -71,7 +73,7 @@ void log_dbg(std::format_string<Args...> fmt, Args&&... args) {
 
 #define AXLE_ASSERT(cond)                                                                          \
     {                                                                                              \
-        (void)(cond);                                                                              \
+        AXLE_UNUSED(cond);                                                                         \
         assert(cond);                                                                              \
     }
 
