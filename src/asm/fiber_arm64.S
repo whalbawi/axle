@@ -15,7 +15,7 @@ ASM_SYM(axle_fiber_swap):
     str x17, [x0, #AXLE_REG_OFF_ARM64_X17]
     str x18, [x0, #AXLE_REG_OFF_ARM64_X18]
 
-    // Store callee-preserved registerS
+    // Store callee-preserved registers
     str x19, [x0, #AXLE_REG_OFF_ARM64_X19]
     str x20, [x0, #AXLE_REG_OFF_ARM64_X20]
     str x21, [x0, #AXLE_REG_OFF_ARM64_X21]
@@ -84,4 +84,3 @@ ASM_SYM(axle_fiber_swap):
     blr lr
 
 #endif // defined(__aarch64__)
-

@@ -93,11 +93,20 @@ set(AXLE_SRC_LIST
     ${AXLE_SRC_DIR}/gate.cpp
     ${AXLE_SRC_DIR}/scheduler.cpp
     ${AXLE_SRC_DIR}/socket.cpp
-    ${AXLE_SRC_DIR}/fiber_arm64.cpp
-    ${AXLE_SRC_DIR}/asm/fiber_arm64.S
     ${CMAKE_CURRENT_BINARY_DIR}/gen/version.cpp
 )
 
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "amd64")
+    message("axle: target processor is x64")
+    list(APPEND AXLE_SRC_LIST ${AXLE_SRC_DIR}/asm/fiber_x64.S)
+    list(APPEND AXLE_SRC_LIST ${AXLE_SRC_DIR}/fiber_x64.cpp)
+elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    message("axle: target processor is arm64")
+    list(APPEND AXLE_SRC_LIST ${AXLE_SRC_DIR}/asm/fiber_arm64.S)
+    list(APPEND AXLE_SRC_LIST ${AXLE_SRC_DIR}/fiber_arm64.cpp)
+else()
+    message(FATAL_ERROR "Unknown target: " ${CMAKE_SYSTEM_PROCESSOR})
+endif()
 if (CMAKE_SYSTEM_NAME MATCHES "FreeBSD|Darwin")
     list(APPEND AXLE_SRC_LIST ${AXLE_SRC_DIR}/poller_bsd.cpp)
 endif ()

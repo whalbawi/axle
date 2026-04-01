@@ -6,14 +6,14 @@
 #include <sys/eventfd.h>
 #include <sys/signalfd.h>
 #include <sys/timerfd.h>
-#include <sys/types.h>
+#include <sys/types.h> // IWYU pragma: keep -- for ssize_t
 
+#include <cerrno>
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
 
 #include <array>
-#include <cerrno>
 #include <span>
 #include <stdexcept>
 #include <vector>
