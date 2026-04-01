@@ -132,7 +132,7 @@ void Scheduler::do_schedule(std::function<void()> task, std::string tag) {
 }
 
 void Scheduler::do_yield() {
-    if (state_ != State::RUNNING) {
+    if (state_ == State::INITED) {
         throw std::runtime_error("scheduler is not running");
     }
     log_dbg("YIELD  {}", Scheduler::current_fiber());
