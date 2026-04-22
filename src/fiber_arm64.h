@@ -1,10 +1,11 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
-#include <span>
-
 #include "fiber_reg_off_arm64.h"
+
+namespace axle {
 
 struct FiberCtx {
     uintptr_t x0; // Holds source fiber
@@ -71,9 +72,5 @@ static_assert(offsetof(FiberCtx, d15) == AXLE_REG_OFF_ARM64_D15, "bad offset for
 static_assert(offsetof(FiberCtx,  sp) == AXLE_REG_OFF_ARM64_SP,  "bad offset for register sp");
 static_assert(offsetof(FiberCtx,  lr) == AXLE_REG_OFF_ARM64_LR,  "bad offset for register lr");
 // clang-format on
-
-namespace axle {
-
-void fiber_ctx_init(FiberCtx* ctx, std::span<uint8_t> stack, void (*target)(void*), void* arg);
 
 } // namespace axle
