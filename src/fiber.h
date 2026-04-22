@@ -7,7 +7,7 @@
 #include <format>
 #include <functional>
 
-#include "fiber_arm64.h"
+#include "fiber_platform.h"
 #include "sanitizer.h"
 
 namespace axle {

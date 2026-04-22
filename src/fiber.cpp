@@ -9,14 +9,14 @@
 #include <string>
 #include <utility>
 
-#include "fiber_arm64.h"
+#include "fiber_platform.h"
 #include "sanitizer.h"
+
+namespace axle {
 
 extern "C" {
 void axle_fiber_swap(FiberCtx* src, const FiberCtx* dst);
 }
-
-namespace axle {
 
 enum : uint8_t {
     FIBER_EXIT_CODE = 0x19,
