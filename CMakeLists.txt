@@ -91,6 +91,7 @@ set(AXLE_SRC_LIST
     ${AXLE_SRC_DIR}/event.cpp
     ${AXLE_SRC_DIR}/fiber.cpp
     ${AXLE_SRC_DIR}/gate.cpp
+    ${AXLE_SRC_DIR}/iouring_socket.cpp
     ${AXLE_SRC_DIR}/scheduler.cpp
     ${AXLE_SRC_DIR}/socket.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/gen/version.cpp
